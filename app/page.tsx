@@ -1,65 +1,133 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { jsPDF } from "jspdf";
+import QRCode from "react-qr-code";
+
+type Consultation = {
+  description: string;
+  amount: number;
+};
 
 export default function Home() {
+  const [patientName, setPatientName] = useState("");
+  const [consultations, setConsultations] = useState<Consultation[]>([
+    { description: "", amount: 0 },
+  ]);
+  const [billGenerated, setBillGenerated] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+
+  const addConsultation = () =>
+    setConsultations([...consultations, { description: "", amount: 0 }]);
+  const updateConsultation = (idx: number, field: string, value: any) => {
+    const updated = [...consultations];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setConsultations(updated);
+  };
+
+  const generateAndUploadBill = async () => {
+    if (!patientName.trim()) {
+      alert("Enter patient name");
+      return;
+    }
+
+    // Generate PDF
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Dental Clinic Bill", 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Patient Name: ${patientName}`, 14, 30);
+
+    let startY = 40;
+    consultations.forEach((c, i) => {
+      doc.text(`${i + 1}. ${c.description} - ₹${c.amount}`, 14, startY);
+      startY += 10;
+    });
+
+    const total = consultations.reduce((a, b) => a + Number(b.amount), 0);
+    doc.text(`Total: ₹${total}`, 14, startY + 10);
+
+    // Convert PDF to base64
+    const pdfBlob = doc.output("blob");
+    const reader = new FileReader();
+    reader.readAsDataURL(pdfBlob);
+    reader.onloadend = async () => {
+      const base64data = (reader.result as string).split(",")[1];
+      const fileName = `bill_${Date.now()}.pdf`;
+
+      // Upload via API route
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64: base64data, fileName }),
+      });
+
+      const data = await response.json();
+      setPdfUrl(data.url);
+      setBillGenerated(true);
+    };
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="card shadow-sm p-4">
+      <h2 className="text-primary mb-3">Create New Bill</h2>
+
+      <div className="mb-3">
+        <label className="form-label">Patient Name</label>
+        <input
+          className="form-control"
+          value={patientName}
+          onChange={(e) => setPatientName(e.target.value)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </div>
+
+      <h5>Consultations</h5>
+      {consultations.map((c, i) => (
+        <div className="row mb-2" key={i}>
+          <div className="col">
+            <input
+              className="form-control"
+              placeholder="Description"
+              value={c.description}
+              onChange={(e) =>
+                updateConsultation(i, "description", e.target.value)
+              }
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
+          </div>
+          <div className="col">
+            <input
+              type="number"
+              className="form-control"
+              placeholder="Amount"
+              value={c.amount}
+              onChange={(e) =>
+                updateConsultation(i, "amount", Number(e.target.value))
+              }
+            />
+          </div>
+        </div>
+      ))}
+
+      <button className="btn btn-secondary mt-2 mb-3" onClick={addConsultation}>
+        + Add Consultation
+      </button>
+
+      <button
+        className="btn btn-success w-100 mb-4"
+        onClick={generateAndUploadBill}
+      >
+        Generate Bill
+      </button>
+
+      {billGenerated && pdfUrl && (
+        <div className="card border-primary p-3 mt-3 text-center">
+          <h4 className="text-primary">Bill Preview</h4>
+          <QRCode value={pdfUrl} size={128} />
+          <a className="btn btn-primary mt-2" href={pdfUrl} target="_blank">
+            Download PDF
           </a>
         </div>
-      </main>
+      )}
     </div>
   );
 }
