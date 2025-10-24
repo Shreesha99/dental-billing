@@ -14,7 +14,7 @@ export default function RootLayout({
         {/* Navbar */}
         <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
           <div className="container">
-            <a className="navbar-brand fw-bold" href="#">
+            <a className="navbar-brand fw-bold mx-auto" href="#">
               🦷 Dentist Billing
             </a>
           </div>
