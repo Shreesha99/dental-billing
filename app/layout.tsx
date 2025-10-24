@@ -21,7 +21,7 @@ export default function RootLayout({
         </nav>
 
         {/* Main */}
-        <main className="container flex-grow-1 py-5">{children}</main>
+        <main className="container grow py-5">{children}</main>
 
         {/* Footer */}
         <footer className="bg-dark text-light text-center py-3 mt-auto">
