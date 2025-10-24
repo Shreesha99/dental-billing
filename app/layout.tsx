@@ -13,9 +13,16 @@ export default function RootLayout({
 
         {/* Navbar */}
         <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-          <div className="container">
-            <a className="navbar-brand fw-bold mx-auto" href="#">
-              🦷 Dentist Billing
+          <div className="container d-flex justify-content-between align-items-center">
+            <a href="/" className="btn btn-light btn-sm me-auto">
+              + Create New Bill
+            </a>
+            {/* Admin Dashboard Button */}
+            <a className="navbar-brand fw-bold">🦷 Dentist Billing</a>
+
+            {/* Admin Dashboard Button */}
+            <a href="/admin/login" className="btn btn-light btn-sm ms-auto">
+              Admin
             </a>
           </div>
         </nav>

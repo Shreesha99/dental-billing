@@ -1,3 +1,4 @@
+// lib/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getFirestore,
@@ -5,6 +6,7 @@ import {
   addDoc,
   doc,
   getDoc,
+  getDocs,
 } from "firebase/firestore";
 
 // Firebase config
@@ -17,11 +19,15 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const firebaseApp = !getApps().length
-  ? initializeApp(firebaseConfig)
-  : getApp();
+// Ensure Firebase is initialized only once
+export const firebaseApp =
+  getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
 const db = getFirestore(firebaseApp);
 
+// ----------- UTILITY FUNCTIONS -----------
+
+// Save bill metadata (used when generating a bill)
 export async function saveBillMetadata(
   patientName: string,
   consultations: any[]
@@ -35,9 +41,20 @@ export async function saveBillMetadata(
   return docRef.id;
 }
 
+// Fetch a single bill by ID
 export async function getBillMetadata(id: string) {
   const docRef = doc(db, "bills", id);
   const docSnap = await getDoc(docRef);
   if (!docSnap.exists()) throw new Error("Bill not found");
   return docSnap.data();
+}
+
+// Fetch all bills (used in admin dashboard)
+export async function getAllBills() {
+  const billsCol = collection(db, "bills");
+  const snapshot = await getDocs(billsCol);
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
 }
