@@ -22,7 +22,7 @@ export default function Home() {
   const billRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<SVGSVGElement>(null);
 
-  // Animate loader
+  // GSAP loader animation
   useEffect(() => {
     if (loading && loaderRef.current) {
       gsap.to(loaderRef.current, {
@@ -67,7 +67,6 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patientName, consultations }),
       });
-
       const data = await res.json();
       if (!data.id) return alert("Failed to save bill");
 
@@ -89,13 +88,8 @@ export default function Home() {
     }
   };
 
-  const downloadPDF = async () => {
-    if (!billId) return;
-
-    const res = await fetch(`/api/fetch-bill?id=${billId}`);
-    const data = await res.json();
-    if (!data.patientName) return alert("Failed to fetch bill");
-
+  // ✅ Client-side jsPDF download
+  const downloadPDF = () => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
@@ -103,7 +97,7 @@ export default function Home() {
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.text(`Patient Name: ${data.patientName}`, 14, 35);
+    doc.text(`Patient Name: ${patientName}`, 14, 35);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 42);
 
     const startY = 55;
@@ -114,13 +108,11 @@ export default function Home() {
 
     doc.setFont("helvetica", "normal");
     let currentY = startY + 8;
-    data.consultations.forEach((c: Consultation, i: number) => {
+    consultations.forEach((c, i) => {
       doc.text(`${i + 1}`, 14, currentY);
       doc.text(c.description, 30, currentY);
       doc.text(
-        `Rs. ${
-          c.amount !== null ? Number(c.amount).toLocaleString("en-IN") : "0"
-        }`,
+        `Rs. ${c.amount !== null ? c.amount.toLocaleString("en-IN") : "0"}`,
         160,
         currentY,
         { align: "right" }
@@ -128,8 +120,8 @@ export default function Home() {
       currentY += 8;
     });
 
-    const total = data.consultations.reduce(
-      (sum: number, c: { amount: any }) => sum + Number(c.amount || 0),
+    const total = consultations.reduce(
+      (sum, c) => sum + Number(c.amount || 0),
       0
     );
     doc.setFont("helvetica", "bold");
@@ -138,13 +130,12 @@ export default function Home() {
       align: "right",
     });
 
-    doc.save(`${data.patientName.replaceAll(" ", "_")}_consultation.pdf`);
+    doc.save(`${patientName.replaceAll(" ", "_")}_consultation.pdf`);
   };
 
   const canGenerateBill =
     consultations.some((c) => c.amount !== null && c.amount > 10) &&
     !billGenerated;
-
   const canAddConsultation = !billGenerated;
 
   const totalAmount = consultations.reduce(
@@ -259,7 +250,7 @@ export default function Home() {
           >
             <h4 className="text-primary mb-3">Bill Generated</h4>
 
-            {/* PDF QR */}
+            {/* PDF QR points to server API */}
             <QRCode
               value={`${window.location.origin}/api/get-bill-pdf?id=${billId}`}
               size={128}
@@ -268,8 +259,7 @@ export default function Home() {
 
             <hr className="w-100" />
 
-            {/* Total */}
-            <h5>Total: Rs.{totalAmount.toLocaleString("en-IN")}</h5>
+            <h5>Total: ₹{totalAmount.toLocaleString("en-IN")}</h5>
 
             {/* Payment QR */}
             <QRCode
@@ -280,8 +270,8 @@ export default function Home() {
             />
             <p className="mt-2 mb-3">Scan QR to pay the above amount</p>
 
-            {/* Buttons */}
             <div className="d-flex gap-2">
+              {/* ✅ Client-side download */}
               <button className="btn btn-primary" onClick={downloadPDF}>
                 Download PDF
               </button>
