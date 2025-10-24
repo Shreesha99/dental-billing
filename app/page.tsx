@@ -261,7 +261,7 @@ export default function Home() {
 
             {/* PDF QR */}
             <QRCode
-              value={`${window.location.origin}/bill/${billId}`}
+              value={`${window.location.origin}/api/get-bill-pdf?id=${billId}`}
               size={128}
             />
             <p className="mt-2 mb-2">Scan QR to download PDF</p>
