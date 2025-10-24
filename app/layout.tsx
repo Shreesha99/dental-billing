@@ -24,6 +24,12 @@ export default function RootLayout({
             <a href="/admin/login" className="btn btn-light btn-sm ms-auto">
               Admin
             </a>
+            <a
+              href="/admin/analytics"
+              className="btn btn-outline-light btn-sm ms-2"
+            >
+              Analytics
+            </a>
           </div>
         </nav>
 
