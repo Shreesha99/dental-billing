@@ -1,19 +1,22 @@
-import { NextResponse } from "next/server";
+import type { NextApiRequest, NextApiResponse } from "next";
 import { getBillMetadata } from "@/lib/firebase";
 import { jsPDF } from "jspdf";
 
-export async function GET(req: Request) {
-  try {
-    const url = new URL(req.url);
-    const billId = url.searchParams.get("id");
-    if (!billId)
-      return NextResponse.json({ error: "Bill ID missing" }, { status: 400 });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "GET")
+    return res.status(405).json({ error: "Method not allowed" });
 
+  const billId = req.query.id as string;
+  if (!billId) return res.status(400).json({ error: "Bill ID missing" });
+
+  try {
     const data = await getBillMetadata(billId);
     if (!data.patientName)
-      return NextResponse.json({ error: "Bill not found" }, { status: 404 });
+      return res.status(404).json({ error: "Bill not found" });
 
-    // Generate PDF
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
@@ -30,7 +33,6 @@ export async function GET(req: Request) {
       42
     );
 
-    // Table header
     const startY = 55;
     doc.setFont("helvetica", "bold");
     doc.text("No.", 14, startY);
@@ -46,7 +48,9 @@ export async function GET(req: Request) {
         `Rs. ${Number(c.amount).toLocaleString("en-IN")}`,
         160,
         currentY,
-        { align: "right" }
+        {
+          align: "right",
+        }
       );
       currentY += 8;
     });
@@ -62,21 +66,17 @@ export async function GET(req: Request) {
     });
 
     const pdfBytes = doc.output("arraybuffer");
-
-    return new Response(pdfBytes, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=${data.patientName.replaceAll(
-          " ",
-          "_"
-        )}_consultation.pdf`,
-      },
-    });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${data.patientName.replaceAll(
+        " ",
+        "_"
+      )}_consultation.pdf`
+    );
+    res.send(Buffer.from(pdfBytes));
   } catch (err) {
     console.error("PDF API error:", err);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+    res.status(500).json({ error: "Failed to generate PDF" });
   }
 }
