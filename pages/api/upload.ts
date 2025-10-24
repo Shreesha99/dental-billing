@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { uploadPDFServer } from "../../lib/firebase";
+// import { uploadPDFServer } from "../../lib/firebase";
 
 export const config = {
   api: {
@@ -17,7 +17,7 @@ export default async function handler(
     try {
       const { pdfBase64, fileName } = req.body;
       const pdfBuffer = Buffer.from(pdfBase64, "base64"); // Node Buffer
-      const url = await uploadPDFServer(pdfBuffer, fileName);
+      const url = "test";
       res.status(200).json({ url });
     } catch (err) {
       console.error("Upload API error:", err);
