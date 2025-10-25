@@ -6,7 +6,7 @@ import QRCode from "react-qr-code";
 import gsap from "gsap";
 import {
   addPatient,
-  getBillsByPatient,
+  getBillsByPatientId,
   getPatientsWithId,
   saveBillWithPatientId,
 } from "../lib/firebase";
@@ -14,6 +14,11 @@ import {
 type Patient = {
   id: string;
   name: string;
+};
+
+type Consultation = {
+  description: string;
+  amount: number | null;
 };
 
 export default function CreateBill() {
@@ -27,14 +32,11 @@ export default function CreateBill() {
   const [billId, setBillId] = useState("");
   const [billGenerated, setBillGenerated] = useState(false);
   const [showPreviousBills, setShowPreviousBills] = useState(false);
+  const [previousBills, setPreviousBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loaderRef = useRef<SVGSVGElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
-  type Consultation = {
-    description: string;
-    amount: number | null;
-  };
 
   // GSAP loader
   useEffect(() => {
@@ -52,8 +54,8 @@ export default function CreateBill() {
   // Fetch patients
   useEffect(() => {
     const fetchPatients = async () => {
-      const data = await getPatientsWithId(); // <-- use the ID-enabled version
-      setPatients(data); // now matches Patient[]
+      const data = await getPatientsWithId(); // use the ID-enabled version
+      setPatients(data);
     };
     fetchPatients();
   }, []);
@@ -76,6 +78,7 @@ export default function CreateBill() {
     setBillId("");
     setBillGenerated(false);
     setShowPreviousBills(false);
+    setPreviousBills([]);
   };
 
   const handlePatientSelect = async (patientId: string) => {
@@ -84,15 +87,21 @@ export default function CreateBill() {
     setPatientName(patient?.name || "");
 
     if (patient) {
-      const bills = await getBillsByPatient(patient.id);
+      const bills = await getBillsByPatientId(patient.id);
+
+      setPreviousBills(bills);
+      setShowPreviousBills(true);
+
       if (bills.length > 0) {
         const lastBill = bills[bills.length - 1];
         setConsultations(lastBill.consultations.map((c: any) => ({ ...c })));
-        setShowPreviousBills(true);
       } else {
         setConsultations([{ description: "", amount: null }]);
-        setShowPreviousBills(false);
       }
+    } else {
+      setPreviousBills([]);
+      setShowPreviousBills(false);
+      setConsultations([{ description: "", amount: null }]);
     }
   };
 
@@ -251,20 +260,64 @@ export default function CreateBill() {
           </div>
         )}
 
-        {/* Previous Bills */}
+        {/* Previous Bills Table */}
         {showPreviousBills && selectedPatient && (
           <div className="mb-3">
-            <h5>Last Bill Consultations for {selectedPatient.name}</h5>
-            <ul className="list-group">
-              {consultations.map((c, i) => (
-                <li
-                  key={i}
-                  className="list-group-item d-flex justify-content-between"
-                >
-                  {c.description} - ₹{c.amount?.toLocaleString("en-IN")}
-                </li>
-              ))}
-            </ul>
+            <h5>Previous Bills for {selectedPatient.name}</h5>
+            <div className="table-responsive">
+              <table className="table table-bordered table-striped">
+                <thead className="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Bill ID</th>
+                    <th>Date</th>
+                    <th>Total Amount (₹)</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previousBills.length > 0 ? (
+                    previousBills.map((bill, idx) => {
+                      const total = bill.consultations.reduce(
+                        (sum: number, c: any) => sum + Number(c.amount || 0),
+                        0
+                      );
+                      const date = bill.createdAt?.seconds
+                        ? new Date(
+                            bill.createdAt.seconds * 1000
+                          ).toLocaleDateString()
+                        : new Date(bill.createdAt).toLocaleDateString();
+                      return (
+                        <tr key={bill.id}>
+                          <td>{idx + 1}</td>
+                          <td>{bill.id}</td>
+                          <td>{date}</td>
+                          <td>₹{total.toLocaleString("en-IN")}</td>
+                          <td>
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() =>
+                                setConsultations(
+                                  bill.consultations.map((c: any) => ({ ...c }))
+                                )
+                              }
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="text-center">
+                        No previous bills found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
