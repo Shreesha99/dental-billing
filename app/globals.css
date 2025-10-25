@@ -1,14 +1,241 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: "Inter", sans-serif;
+:root {
+  --sidebar-bg: #0b2d52;
+  --sidebar-hover: #11406e;
+  --sidebar-active: #ffffff;
+  --sidebar-text: #e8edf3;
+  --primary: #0d6efd;
+  --light-bg: #f6f8fb;
+  --card-bg: #ffffff;
+  --shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
-body {
-  background-color: #f7f7f7;
-  color: #333;
-  padding: 20px;
+* {
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body.app-body {
+  background-color: var(--light-bg);
+  color: #2c3e50;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.layout-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  width: 240px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  z-index: 1050;
+  box-shadow: var(--shadow);
+}
+
+.sidebar.mobile {
+  left: -260px;
+  width: 240px;
+}
+
+.sidebar.mobile.open {
+  left: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.sidebar-nav {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--sidebar-text);
+  text-decoration: none;
+  padding: 12px 18px;
+  transition: all 0.25s ease;
+  border-left: 3px solid transparent;
+  font-size: 0.95rem;
+}
+
+.nav-item:hover {
+  background-color: var(--sidebar-hover);
+}
+
+.nav-item.active {
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.15
+  ); /* subtle transparent highlight */
+  color: #ffffff; /* text stays white */
+  border-left: 3px solid var(--primary); /* accent */
+  font-weight: 600;
+  border-radius: 8px; /* rounded corners */
+  margin: 2px 8px; /* optional: small spacing so rounding looks neat */
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+}
+
+/* Overlay for mobile */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.35);
+  z-index: 1040;
+}
+
+/* Main Content */
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--light-bg);
+  margin-left: 240px;
+  transition: margin-left 0.3s ease;
+}
+
+.topbar {
+  background-color: white;
+  box-shadow: var(--shadow);
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.page-title {
+  font-weight: 600;
+  color: #1b3b8a;
+  margin: 0;
+}
+
+.btn-toggle-mobile {
+  background: transparent;
+  border: none;
+  color: #1b3b8a;
+  margin-right: 12px;
+}
+
+.user-badge {
+  background-color: var(--primary);
+  color: white;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.page-content {
+  flex-grow: 1;
+  padding: 24px;
+  background-color: var(--light-bg);
+}
+
+.footer {
+  text-align: center;
+  background-color: white;
+  padding: 12px 0;
+  font-size: 0.85rem;
+  color: #555;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Responsive tweaks */
+@media (max-width: 991px) {
+  .main-content {
+    margin-left: 0;
+  }
+
+  .sidebar {
+    position: fixed;
+    height: 100vh;
+    left: -240px;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar .nav-text {
+    display: inline;
+  }
+
+  .page-title {
+    font-size: 1rem;
+  }
+
+  .page-content {
+    padding: 16px;
+  }
+
+  .user-badge {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 575px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .page-content {
+    padding: 12px;
+  }
+
+  .page-title {
+    font-size: 0.95rem;
+  }
 }

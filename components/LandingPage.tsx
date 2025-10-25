@@ -8,8 +8,8 @@ export default function LandingPage() {
       className="d-flex flex-column justify-content-center align-items-center text-center"
       style={{
         minHeight: "80vh",
-        background: "linear-gradient(to right, #6a11cb, #2575fc)",
-        color: "white",
+        backgroundColor: "#f8f9fa", // light, clean background
+        color: "#343a40", // dark text for contrast
         padding: "2rem",
         borderRadius: "1rem",
       }}
@@ -30,7 +30,7 @@ export default function LandingPage() {
       <div className="d-flex gap-3 flex-wrap justify-content-center">
         <a
           href="/create-bill"
-          className="btn btn-outline-light btn-lg fw-bold shadow-sm"
+          className="btn btn-outline-primary btn-lg fw-bold shadow-sm"
         >
           + Create Bill
         </a>
