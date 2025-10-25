@@ -183,6 +183,14 @@ body.app-body {
   background-color: var(--light-bg);
 }
 
+.page-content {
+  flex: 1; /* ensures content area grows */
+}
+
+.footer {
+  margin-top: auto; /* pushes footer to the bottom */
+}
+
 .footer {
   text-align: center;
   background-color: white;
@@ -190,6 +198,54 @@ body.app-body {
   font-size: 0.85rem;
   color: #555;
   border-top: 1px solid #e0e0e0;
+}
+
+/* Welcome Card Styling */
+.welcome-card {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  border-radius: 1rem;
+  transition: all 0.3s ease;
+}
+
+.welcome-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-card .text-primary {
+  color: #0d6efd !important;
+}
+
+.welcome-card .text-secondary {
+  color: #6c757d !important;
+}
+
+.welcome-card .text-muted {
+  color: #495057 !important;
+}
+
+.welcome-card .btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  transition: background-color 0.2s ease;
+}
+
+.welcome-card .btn-primary:hover {
+  background-color: #0b5ed7;
+}
+
+.welcome-image {
+  height: 90px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+}
+
+@media (max-width: 768px) {
+  .welcome-card {
+    text-align: center;
+  }
+  .welcome-image {
+    height: 70px;
+  }
 }
 
 /* Responsive tweaks */

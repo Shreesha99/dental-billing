@@ -8,7 +8,10 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
 } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 // Firebase config
 const firebaseConfig = {
@@ -167,4 +170,38 @@ export async function saveBillWithPatientId(
     createdAt: new Date(),
   });
   return docRef.id;
+}
+
+// ------------------ DENTIST PROFILE FUNCTIONS ------------------
+
+// export async function getDentistProfile() {
+//   const auth = getAuth(firebaseApp);
+//   const user = auth.currentUser;
+
+//   if (!user) throw new Error("No user logged in");
+
+//   const docRef = doc(db, "dentists", user.uid);
+//   const docSnap = await getDoc(docRef);
+
+//   if (!docSnap.exists()) {
+//     throw new Error("Dentist profile not found in Firestore");
+//   }
+
+//   return docSnap.data();
+// }
+
+// ------------------ DASHBOARD HELPERS ------------------
+
+// ✅ Get total appointments for today
+export async function getTodayAppointmentsCount(): Promise<number> {
+  const snapshot = await getDocs(collection(db, "appointments"));
+  const today = new Date().toISOString().split("T")[0];
+
+  const count = snapshot.docs.filter((doc) => {
+    const data = doc.data() as any;
+    const startDate = new Date(data.start).toISOString().split("T")[0];
+    return startDate === today;
+  }).length;
+
+  return count;
 }

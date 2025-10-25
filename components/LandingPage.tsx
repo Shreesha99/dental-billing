@@ -15,7 +15,7 @@ export default function LandingPage() {
       }}
     >
       {/* Optional Icon */}
-      <div className="mb-4">
+      {/* <div className="mb-4">
         <img src="/logo.png" alt="Clinic Icon" width={200} height={200} />
       </div>
 
@@ -24,17 +24,17 @@ export default function LandingPage() {
       </h1>
       <p className="lead mb-4">
         Simplifying your clinic billing and payments with ease and speed.
-      </p>
+      </p> */}
 
       {/* Buttons */}
-      <div className="d-flex gap-3 flex-wrap justify-content-center">
+      {/* <div className="d-flex gap-3 flex-wrap justify-content-center">
         <a
           href="/create-bill"
           className="btn btn-outline-primary btn-lg fw-bold shadow-sm"
         >
           + Create Bill
         </a>
-      </div>
+      </div> */}
     </div>
   );
 }

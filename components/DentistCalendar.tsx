@@ -20,6 +20,9 @@ import {
 } from "../lib/firebase";
 import { Modal, Button, Form } from "react-bootstrap";
 
+// ✅ Import react-hot-toast
+import toast, { Toaster } from "react-hot-toast";
+
 const locales = {};
 const localizer = dateFnsLocalizer({
   format,
@@ -111,33 +114,39 @@ export default function DentistCalendar() {
       description: formData.description,
     };
 
-    if (isEditing && formData.id) {
-      await updateAppointment(formData.id, newAppointment);
-      setAppointments((prev) =>
-        prev.map((a) =>
-          a.id === formData.id
-            ? {
-                ...a,
-                ...newAppointment,
-                start: new Date(newAppointment.start),
-                end: new Date(newAppointment.end),
-                title: `${formData.patientName} - ${formData.type}`,
-              }
-            : a
-        )
-      );
-    } else {
-      const id = await addAppointment(newAppointment);
-      setAppointments((prev) => [
-        ...prev,
-        {
-          ...newAppointment,
-          id,
-          start: new Date(newAppointment.start),
-          end: new Date(newAppointment.end),
-          title: `${formData.patientName} - ${formData.type}`,
-        },
-      ]);
+    try {
+      if (isEditing && formData.id) {
+        await updateAppointment(formData.id, newAppointment);
+        setAppointments((prev) =>
+          prev.map((a) =>
+            a.id === formData.id
+              ? {
+                  ...a,
+                  ...newAppointment,
+                  start: new Date(newAppointment.start),
+                  end: new Date(newAppointment.end),
+                  title: `${formData.patientName} - ${formData.type}`,
+                }
+              : a
+          )
+        );
+        toast.success("Appointment updated successfully!");
+      } else {
+        const id = await addAppointment(newAppointment);
+        setAppointments((prev) => [
+          ...prev,
+          {
+            ...newAppointment,
+            id,
+            start: new Date(newAppointment.start),
+            end: new Date(newAppointment.end),
+            title: `${formData.patientName} - ${formData.type}`,
+          },
+        ]);
+        toast.success("Appointment added successfully!");
+      }
+    } catch (error) {
+      toast.error("Something went wrong. Please try again.");
     }
 
     handleCloseModal();
@@ -145,8 +154,15 @@ export default function DentistCalendar() {
 
   const handleDeleteAppointment = async () => {
     if (!formData.id) return;
-    await deleteAppointment(formData.id);
-    setAppointments((prev) => prev.filter((a) => a.id !== formData.id));
+
+    try {
+      await deleteAppointment(formData.id);
+      setAppointments((prev) => prev.filter((a) => a.id !== formData.id));
+      toast.success("Appointment deleted successfully!");
+    } catch (error) {
+      toast.error("Failed to delete appointment.");
+    }
+
     handleCloseModal();
   };
 
@@ -211,6 +227,9 @@ export default function DentistCalendar() {
 
   return (
     <div className="container-fluid my-3">
+      {/* ✅ Toaster component */}
+      <Toaster position="top-right" />
+
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h4>Dentist Calendar</h4>
         <Button variant="primary" onClick={handleShowModal}>
@@ -218,6 +237,7 @@ export default function DentistCalendar() {
         </Button>
       </div>
 
+      {/* Calendar */}
       <Calendar
         localizer={localizer}
         events={appointments}
@@ -234,6 +254,95 @@ export default function DentistCalendar() {
         onView={(view) => setCurrentView(view)}
         onNavigate={(date) => setCurrentDate(date)}
         popup
+        components={{
+          toolbar: (toolbar) => {
+            const goToBack = () => toolbar.onNavigate("PREV");
+            const goToNext = () => toolbar.onNavigate("NEXT");
+            const goToToday = () => toolbar.onNavigate("TODAY");
+
+            const setView = (view: View) => toolbar.onView(view);
+            const label = () => {
+              const date = new Date(toolbar.date);
+
+              switch (toolbar.view) {
+                case "month":
+                  return date.toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  });
+                case "week": {
+                  const startOfWeek = new Date(date);
+                  const endOfWeek = new Date(date);
+                  endOfWeek.setDate(endOfWeek.getDate() + 6);
+                  const options: Intl.DateTimeFormatOptions = {
+                    month: "short",
+                    day: "numeric",
+                  };
+                  return `${startOfWeek.toLocaleDateString(
+                    "en-US",
+                    options
+                  )} - ${endOfWeek.toLocaleDateString("en-US", options)}`;
+                }
+                case "day":
+                  return date.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  });
+                case "agenda":
+                  return `Agenda for ${date.toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}`;
+                default:
+                  return date.toLocaleDateString();
+              }
+            };
+
+            return (
+              <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-3">
+                <div className="btn-group mb-2 mb-md-0">
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={goToBack}
+                  >
+                    &larr;
+                  </button>
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={goToToday}
+                  >
+                    Today
+                  </button>
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={goToNext}
+                  >
+                    &rarr;
+                  </button>
+                </div>
+                <h5 className="mb-2 mb-md-0 text-center">{label()}</h5>
+
+                <div className="btn-group">
+                  {["month", "week", "day", "agenda"].map((v) => (
+                    <button
+                      key={v}
+                      className={`btn ${
+                        toolbar.view === v
+                          ? "btn-primary"
+                          : "btn-outline-primary"
+                      }`}
+                      onClick={() => setView(v as View)}
+                    >
+                      {v.charAt(0).toUpperCase() + v.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          },
+        }}
       />
 
       {/* Modal */}

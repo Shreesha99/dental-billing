@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { jsPDF } from "jspdf";
 import QRCode from "react-qr-code";
 import gsap from "gsap";
+import toast, { Toaster } from "react-hot-toast";
 import {
   addPatient,
   getBillsByPatientId,
@@ -11,15 +12,8 @@ import {
   saveBillWithPatientId,
 } from "../lib/firebase";
 
-type Patient = {
-  id: string;
-  name: string;
-};
-
-type Consultation = {
-  description: string;
-  amount: number | null;
-};
+type Patient = { id: string; name: string };
+type Consultation = { description: string; amount: number | null };
 
 export default function CreateBill() {
   const [patientType, setPatientType] = useState<"new" | "existing">("new");
@@ -38,7 +32,7 @@ export default function CreateBill() {
   const loaderRef = useRef<SVGSVGElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
 
-  // GSAP loader
+  // GSAP loader animation
   useEffect(() => {
     if (loading && loaderRef.current) {
       gsap.to(loaderRef.current, {
@@ -54,13 +48,13 @@ export default function CreateBill() {
   // Fetch patients
   useEffect(() => {
     const fetchPatients = async () => {
-      const data = await getPatientsWithId(); // use the ID-enabled version
+      const data = await getPatientsWithId();
       setPatients(data);
     };
     fetchPatients();
   }, []);
 
-  // Helpers
+  // Helper functions
   const addConsultation = () =>
     setConsultations([...consultations, { description: "", amount: null }]);
   const updateConsultation = (idx: number, field: string, value: any) => {
@@ -68,9 +62,8 @@ export default function CreateBill() {
     updated[idx] = { ...updated[idx], [field]: value };
     setConsultations(updated);
   };
-  const deleteConsultation = (idx: number) => {
+  const deleteConsultation = (idx: number) =>
     setConsultations(consultations.filter((_, i) => i !== idx));
-  };
   const resetForm = () => {
     setPatientName("");
     setSelectedPatient(null);
@@ -88,16 +81,8 @@ export default function CreateBill() {
 
     if (patient) {
       const bills = await getBillsByPatientId(patient.id);
-
       setPreviousBills(bills);
       setShowPreviousBills(true);
-
-      if (bills.length > 0) {
-        const lastBill = bills[bills.length - 1];
-        setConsultations(lastBill.consultations.map((c: any) => ({ ...c })));
-      } else {
-        setConsultations([{ description: "", amount: null }]);
-      }
     } else {
       setPreviousBills([]);
       setShowPreviousBills(false);
@@ -106,13 +91,14 @@ export default function CreateBill() {
   };
 
   const generateBill = async () => {
-    if (!patientName.trim()) return alert("Enter patient name");
+    if (!patientName.trim()) return toast.error("Enter patient name");
     setLoading(true);
 
     try {
       let patientId = selectedPatient?.id || "";
       if (patientType === "new") {
         patientId = await addPatient(patientName);
+        toast.success("Patient added successfully!");
       }
 
       const newBillId = await saveBillWithPatientId(
@@ -122,6 +108,7 @@ export default function CreateBill() {
       );
       setBillId(newBillId);
       setBillGenerated(true);
+      toast.success("Bill generated successfully!");
 
       if (billRef.current) {
         gsap.fromTo(
@@ -132,7 +119,7 @@ export default function CreateBill() {
       }
     } catch (err) {
       console.error(err);
-      alert("Something went wrong");
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -180,6 +167,7 @@ export default function CreateBill() {
     });
 
     doc.save(`${patientName.replaceAll(" ", "_")}_consultation.pdf`);
+    toast.success("PDF downloaded!");
   };
 
   const canGenerateBill =
@@ -193,6 +181,7 @@ export default function CreateBill() {
 
   return (
     <div className="container py-5" style={{ fontFamily: "Inter, sans-serif" }}>
+      <Toaster position="top-right" reverseOrder={false} />
       <div className="card shadow-sm p-4 mx-auto" style={{ maxWidth: "700px" }}>
         <h2 className="text-primary mb-3 text-center">Create New Bill</h2>
 
@@ -269,10 +258,9 @@ export default function CreateBill() {
                 <thead className="table-light">
                   <tr>
                     <th>#</th>
-                    <th>Bill ID</th>
                     <th>Date</th>
                     <th>Total Amount (₹)</th>
-                    <th>Details</th>
+                    <th>View</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,17 +278,12 @@ export default function CreateBill() {
                       return (
                         <tr key={bill.id}>
                           <td>{idx + 1}</td>
-                          <td>{bill.id}</td>
                           <td>{date}</td>
                           <td>₹{total.toLocaleString("en-IN")}</td>
                           <td>
                             <button
                               className="btn btn-sm btn-outline-primary"
-                              onClick={() =>
-                                setConsultations(
-                                  bill.consultations.map((c: any) => ({ ...c }))
-                                )
-                              }
+                              onClick={downloadPDF}
                             >
                               View
                             </button>
@@ -310,7 +293,7 @@ export default function CreateBill() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="text-center">
+                      <td colSpan={4} className="text-center">
                         No previous bills found
                       </td>
                     </tr>
