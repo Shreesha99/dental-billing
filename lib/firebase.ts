@@ -4,9 +4,11 @@ import {
   getFirestore,
   collection,
   addDoc,
+  getDocs,
   doc,
   getDoc,
-  getDocs,
+  updateDoc,
+  deleteDoc,
 } from "firebase/firestore";
 
 // Firebase config
@@ -19,15 +21,15 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Ensure Firebase is initialized only once
+// Initialize Firebase
 export const firebaseApp =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-const db = getFirestore(firebaseApp);
+// **Export db so other modules can use it**
+export const db = getFirestore(firebaseApp);
 
-// ----------- UTILITY FUNCTIONS -----------
+// ----------- BILLS UTILITY FUNCTIONS -----------
 
-// Save bill metadata (used when generating a bill)
 export async function saveBillMetadata(
   patientName: string,
   consultations: any[]
@@ -41,7 +43,6 @@ export async function saveBillMetadata(
   return docRef.id;
 }
 
-// Fetch a single bill by ID
 export async function getBillMetadata(id: string) {
   const docRef = doc(db, "bills", id);
   const docSnap = await getDoc(docRef);
@@ -49,7 +50,6 @@ export async function getBillMetadata(id: string) {
   return docSnap.data();
 }
 
-// Fetch all bills (used in admin dashboard)
 export async function getAllBills() {
   const billsCol = collection(db, "bills");
   const snapshot = await getDocs(billsCol);
@@ -57,4 +57,45 @@ export async function getAllBills() {
     id: doc.id,
     ...doc.data(),
   }));
+}
+
+// ----------- APPOINTMENTS UTILITY FUNCTIONS -----------
+
+const appointmentsCol = collection(db, "appointments");
+
+export type AppointmentData = {
+  description: string;
+  id: string;
+  patientName: string;
+  type: "Consultation" | "Cleaning" | "Emergency";
+  start: string; // Firestore timestamp saved as ISO string
+  end: string;
+};
+
+export async function addAppointment(
+  appointment: Omit<AppointmentData, "id">
+): Promise<string> {
+  const docRef = await addDoc(collection(db, "appointments"), appointment);
+  return docRef.id;
+}
+
+export async function getAppointments(): Promise<AppointmentData[]> {
+  const snapshot = await getDocs(collection(db, "appointments"));
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<AppointmentData, "id">),
+  }));
+}
+
+export async function updateAppointment(
+  id: string,
+  appointment: Omit<AppointmentData, "id">
+) {
+  const docRef = doc(db, "appointments", id);
+  await updateDoc(docRef, appointment);
+}
+
+export async function deleteAppointment(id: string) {
+  const docRef = doc(db, "appointments", id);
+  await deleteDoc(docRef);
 }

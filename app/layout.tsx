@@ -42,6 +42,7 @@ export default function RootLayout({
     { name: "Create Bill", href: "/create-bill", icon: <FiFileText /> },
     { name: "Admin", href: "/admin/login", icon: <FiUser /> },
     { name: "Analytics", href: "/admin/analytics", icon: <FiBarChart2 /> },
+    { name: "Calendar", href: "/calendar", icon: <FiBarChart2 /> },
   ];
 
   return (

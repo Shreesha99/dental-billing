@@ -1,0 +1,30 @@
+.rbc-calendar {
+  font-family: "Roboto", sans-serif;
+  border: none;
+}
+
+.rbc-toolbar {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 10px;
+}
+
+.rbc-toolbar button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  margin: 0 2px;
+  padding: 4px 8px;
+}
+
+.rbc-toolbar button:hover {
+  background-color: #0056b3;
+}
+
+.rbc-event {
+  font-size: 0.85rem;
+  padding: 4px;
+  border-radius: 4px;
+  color: white;
+}
