@@ -1,3 +1,105 @@
+// // lib/firebase.ts
+// import { initializeApp, getApps, getApp } from "firebase/app";
+// import {
+//   getFirestore,
+//   collection,
+//   addDoc,
+//   getDocs,
+//   doc,
+//   getDoc,
+//   updateDoc,
+//   deleteDoc,
+// } from "firebase/firestore";
+
+// // Firebase config
+// const firebaseConfig = {
+//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+//   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+//   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+//   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+//   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+// };
+
+// // Initialize Firebase
+// export const firebaseApp =
+//   getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// // **Export db so other modules can use it**
+// export const db = getFirestore(firebaseApp);
+
+// // ----------- BILLS UTILITY FUNCTIONS -----------
+
+// export async function saveBillMetadata(
+//   patientName: string,
+//   consultations: any[]
+// ) {
+//   const billsCol = collection(db, "bills");
+//   const docRef = await addDoc(billsCol, {
+//     patientName,
+//     consultations,
+//     createdAt: new Date(),
+//   });
+//   return docRef.id;
+// }
+
+// export async function getBillMetadata(id: string) {
+//   const docRef = doc(db, "bills", id);
+//   const docSnap = await getDoc(docRef);
+//   if (!docSnap.exists()) throw new Error("Bill not found");
+//   return docSnap.data();
+// }
+
+// export async function getAllBills() {
+//   const billsCol = collection(db, "bills");
+//   const snapshot = await getDocs(billsCol);
+//   return snapshot.docs.map((doc) => ({
+//     id: doc.id,
+//     ...doc.data(),
+//   }));
+// }
+
+// // ----------- APPOINTMENTS UTILITY FUNCTIONS -----------
+
+// const appointmentsCol = collection(db, "appointments");
+
+// export type AppointmentData = {
+//   description: string;
+//   id: string;
+//   patientName: string;
+//   type: "Consultation" | "Cleaning" | "Emergency";
+//   start: string; // Firestore timestamp saved as ISO string
+//   end: string;
+// };
+
+// export async function addAppointment(
+//   appointment: Omit<AppointmentData, "id">
+// ): Promise<string> {
+//   const docRef = await addDoc(collection(db, "appointments"), appointment);
+//   return docRef.id;
+// }
+
+// export async function getAppointments(): Promise<AppointmentData[]> {
+//   const snapshot = await getDocs(collection(db, "appointments"));
+//   return snapshot.docs.map((doc) => ({
+//     id: doc.id,
+//     ...(doc.data() as Omit<AppointmentData, "id">),
+//   }));
+// }
+
+// export async function updateAppointment(
+//   id: string,
+//   appointment: Omit<AppointmentData, "id">
+// ) {
+//   const docRef = doc(db, "appointments", id);
+//   await updateDoc(docRef, appointment);
+// }
+
+// export async function deleteAppointment(id: string) {
+//   const docRef = doc(db, "appointments", id);
+//   await deleteDoc(docRef);
+// }
+
 // lib/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
@@ -25,10 +127,10 @@ const firebaseConfig = {
 export const firebaseApp =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// **Export db so other modules can use it**
+// Export db
 export const db = getFirestore(firebaseApp);
 
-// ----------- BILLS UTILITY FUNCTIONS -----------
+// ------------------ EXISTING BILLS FUNCTIONS ------------------
 
 export async function saveBillMetadata(
   patientName: string,
@@ -59,7 +161,7 @@ export async function getAllBills() {
   }));
 }
 
-// ----------- APPOINTMENTS UTILITY FUNCTIONS -----------
+// ------------------ EXISTING APPOINTMENTS FUNCTIONS ------------------
 
 const appointmentsCol = collection(db, "appointments");
 
@@ -68,7 +170,7 @@ export type AppointmentData = {
   id: string;
   patientName: string;
   type: "Consultation" | "Cleaning" | "Emergency";
-  start: string; // Firestore timestamp saved as ISO string
+  start: string; // ISO string
   end: string;
 };
 
@@ -98,4 +200,74 @@ export async function updateAppointment(
 export async function deleteAppointment(id: string) {
   const docRef = doc(db, "appointments", id);
   await deleteDoc(docRef);
+}
+
+// ------------------ EXISTING PATIENT/BILL HELPERS ------------------
+
+export async function getPatients(): Promise<string[]> {
+  const snapshot = await getDocs(collection(db, "bills"));
+  const names = snapshot.docs.map((doc) => (doc.data() as any).patientName);
+  return Array.from(new Set(names));
+}
+
+export async function getBillsByPatient(patientName: string) {
+  const snapshot = await getDocs(collection(db, "bills"));
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...(doc.data() as any) }))
+    .filter((b) => b.patientName === patientName);
+}
+
+// ------------------ NEW PATIENT ID SYSTEM ------------------
+
+const patientsCol = collection(db, "patients");
+
+export type PatientData = {
+  name: string;
+  createdAt: Date;
+};
+
+// Add new patient or return existing ID if patient already exists
+export async function addPatient(name: string): Promise<string> {
+  const snapshot = await getDocs(patientsCol);
+  const existing = snapshot.docs.find(
+    (doc) => (doc.data() as any).name === name
+  );
+  if (existing) return existing.id;
+
+  const docRef = await addDoc(patientsCol, { name, createdAt: new Date() });
+  return docRef.id;
+}
+
+// Get all patients with IDs
+export async function getPatientsWithId(): Promise<
+  { id: string; name: string }[]
+> {
+  const snapshot = await getDocs(patientsCol);
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    name: (doc.data() as any).name,
+  }));
+}
+
+// Get all bills for a given patient ID
+export async function getBillsByPatientId(patientId: string) {
+  const snapshot = await getDocs(collection(db, "bills"));
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...(doc.data() as any) }))
+    .filter((b) => b.patientId === patientId);
+}
+
+// Save bill with patientId
+export async function saveBillWithPatientId(
+  patientId: string,
+  patientName: string,
+  consultations: any[]
+) {
+  const docRef = await addDoc(collection(db, "bills"), {
+    patientId,
+    patientName,
+    consultations,
+    createdAt: new Date(),
+  });
+  return docRef.id;
 }
