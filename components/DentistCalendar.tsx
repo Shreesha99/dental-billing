@@ -38,7 +38,7 @@ type Appointment = {
   title: string;
   start: Date;
   end: Date;
-  type: "Consultation" | "Cleaning" | "Emergency";
+  type: "Consultation" | "Cleaning" | "Emergency" | "Follow-up";
   description?: string;
 };
 
