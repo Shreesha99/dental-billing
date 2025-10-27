@@ -135,33 +135,41 @@ export default function LandingPage() {
   // GSAP entrance animation
   useEffect(() => {
     if (loading || hasAnimated.current) return;
-    hasAnimated.current = true;
 
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline();
+    const timeout = setTimeout(() => {
+      hasAnimated.current = true;
+      const ctx = gsap.context(() => {
+        const tl = gsap.timeline();
 
-      tl.fromTo(
-        titleRef.current,
-        { y: 28, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" }
-      );
+        if (titleRef.current) {
+          tl.fromTo(
+            titleRef.current,
+            { y: 28, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" }
+          );
+        }
 
-      const els = cardsRef.current.filter(Boolean) as Element[];
-      tl.fromTo(
-        els,
-        { y: 30, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.7,
-          stagger: 0.12,
-          ease: "back.out(1.4)",
-        },
-        "-=0.45"
-      );
-    }, containerRef);
+        const els = cardsRef.current.filter(Boolean) as Element[];
+        if (els.length > 0) {
+          tl.fromTo(
+            els,
+            { y: 30, opacity: 0 },
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.7,
+              stagger: 0.12,
+              ease: "back.out(1.4)",
+            },
+            "-=0.45"
+          );
+        }
+      }, containerRef);
 
-    return () => ctx.revert();
+      return () => ctx.revert();
+    }, 100); // 🔥 small delay ensures DOM is ready
+
+    return () => clearTimeout(timeout);
   }, [loading]);
 
   const handleHover = (index: number, enter: boolean) => {
