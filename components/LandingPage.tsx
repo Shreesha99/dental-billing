@@ -176,17 +176,56 @@ export default function LandingPage() {
     });
   };
 
-  // If loading, show spinner center
+  // Move GSAP loader animation OUTSIDE the conditional
+  useEffect(() => {
+    if (!loading) return;
+
+    const tl = gsap.timeline({ repeat: -1, repeatDelay: 0.3 });
+    tl.to(".progress-fill", {
+      width: "100%",
+      duration: 1.2,
+      ease: "power2.inOut",
+    }).to(".progress-fill", {
+      width: "0%",
+      duration: 0,
+    });
+
+    // ✅ Proper cleanup — no return value from kill()
+    return () => {
+      tl.kill();
+    };
+  }, [loading]);
+
   if (loading) {
     return (
       <div
         className="dashboard-wrap d-flex align-items-center justify-content-center"
         style={{ minHeight: "60vh" }}
       >
-        <div className="text-center">
-          <div className="spinner-border text-primary" role="status"></div>
-          <p className="mt-3 mb-0">Loading dashboard...</p>
+        <div className="text-center w-50">
+          <div
+            className="progress"
+            style={{
+              height: "10px",
+              background: "#e0e6ef",
+              borderRadius: "20px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              className="progress-fill"
+              style={{
+                width: "0%",
+                height: "100%",
+                background: "linear-gradient(90deg, #007bff, #00c4ff)",
+              }}
+            ></div>
+          </div>
+          <p className="mt-3 mb-0 fw-semibold text-secondary">
+            Loading dashboard...
+          </p>
         </div>
+
         <style jsx>{`
           .dashboard-wrap {
             background: linear-gradient(180deg, #f3f6fb 0%, #eef2f7 100%);
