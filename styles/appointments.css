@@ -1,0 +1,36 @@
+.appointments-card {
+  background-color: #fff;
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.appointments-card .btn-light {
+  background-color: #f8f9fa !important;
+}
+
+.appointment-item {
+  transition: all 0.2s ease;
+}
+
+.appointment-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.week-scroll {
+  gap: 0.5rem;
+  scrollbar-width: none;
+}
+
+.week-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .appointments-card {
+    padding: 0.75rem;
+  }
+  .appointment-item {
+    font-size: 0.9rem;
+  }
+}

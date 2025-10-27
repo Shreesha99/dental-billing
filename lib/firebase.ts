@@ -69,7 +69,7 @@ export type AppointmentData = {
   description: string;
   id: string;
   patientName: string;
-  type: "Consultation" | "Cleaning" | "Emergency";
+  type: "Consultation" | "Cleaning" | "Emergency" | "Follow-up";
   start: string; // ISO string
   end: string;
 };
@@ -83,10 +83,15 @@ export async function addAppointment(
 
 export async function getAppointments(): Promise<AppointmentData[]> {
   const snapshot = await getDocs(collection(db, "appointments"));
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<AppointmentData, "id">),
-  }));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Omit<AppointmentData, "id">;
+    return {
+      id: doc.id,
+      ...data,
+      start: data.start, // already a string
+      end: data.end, // already a string
+    };
+  });
 }
 
 export async function updateAppointment(
