@@ -110,12 +110,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>🦷 Dentist Billing System</title>
+        <title>Dentist Billing System</title>
         <link
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="icon" href="/logo-removebg-preview.png" type="image/png" />
       </head>
       <body className="app-body">
         <Toaster position="top-right" reverseOrder={false} />
