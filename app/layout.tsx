@@ -11,42 +11,45 @@ import {
   FiCalendar,
   FiX,
 } from "react-icons/fi";
+import { Toaster } from "react-hot-toast";
+import { AuthProvider, useAuth } from "./AuthProvider";
+import ProtectedLayout from "./ProtectedLayout";
 import {
   getAppointments,
   getAllBills,
   getPatientsWithId,
 } from "../lib/firebase";
-import { Toaster } from "react-hot-toast";
-import { AuthProvider, useAuth } from "./AuthProvider";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
   const router = useRouter();
-  const [hydrated, setHydrated] = useState(false);
   const { user, logout } = useAuth();
 
-  const [appointmentsTodayCount, setAppointmentsTodayCount] =
-    useState<number>(0);
-  const [revenueToday, setRevenueToday] = useState<number>(0);
-  const [newPatientsToday, setNewPatientsToday] = useState<number>(0);
+  // ✅ Public routes — hide sidebar/navbar
+  const publicRoutes = ["/login", "/signup"];
+  const isPublic = publicRoutes.includes(pathname);
+
+  const [appointmentsTodayCount, setAppointmentsTodayCount] = useState(0);
+  const [revenueToday, setRevenueToday] = useState(0);
+  const [newPatientsToday, setNewPatientsToday] = useState(0);
 
   useEffect(() => {
-    setHydrated(true);
-
     const handleResize = () => {
       const mobile = window.innerWidth < 992;
       setIsMobile(mobile);
       setSidebarOpen(!mobile);
     };
-
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // ✅ Skip dashboard fetching for public routes
   useEffect(() => {
+    if (isPublic) return;
+
     const fetchDashboardData = async () => {
       try {
         const today = new Date();
@@ -61,13 +64,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
         const bills = await getAllBills();
         const todayBills = bills.filter((b: any) => {
-          let billDate: string;
-          if (b.createdAt?.toDate) {
-            billDate = b.createdAt.toDate().toISOString().split("T")[0];
-          } else if (b.createdAt) {
-            billDate = new Date(b.createdAt).toISOString().split("T")[0];
-          } else return false;
-          return billDate === todayStr;
+          const created = b.createdAt?.toDate
+            ? b.createdAt.toDate()
+            : new Date(b.createdAt);
+          return created.toISOString().split("T")[0] === todayStr;
         });
 
         const revenue = todayBills.reduce((sum: number, bill: any) => {
@@ -75,7 +75,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
             return (
               sum +
               bill.consultations.reduce(
-                (s: any, c: { amount: number }) => s + (c.amount || 0),
+                (s: number, c: { amount: number }) => s + (c.amount || 0),
                 0
               )
             );
@@ -96,7 +96,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [isPublic]);
 
   const menuItems = [
     { name: "Home", href: "/", icon: <FiHome /> },
@@ -105,6 +105,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     { name: "Admin", href: "/admin/login", icon: <FiUser /> },
   ];
 
+  // ✅ Show only login/signup content without sidebar/navbar
+  if (isPublic) {
+    return <main className="w-100">{children}</main>;
+  }
+
+  // ✅ Protected layout with sidebar/navbar
   return (
     <div className="layout-container">
       {/* Sidebar */}
@@ -135,7 +141,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <div className="grow">
             {menuItems
               .filter((item) => item.name !== "Admin")
-              .map((item, idx: number) => (
+              .map((item, idx) => (
                 <a
                   key={idx}
                   href={item.href}
@@ -154,7 +160,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <div>
             {menuItems
               .filter((item) => item.name === "Admin")
-              .map((item, idx: number) => (
+              .map((item, idx) => (
                 <a
                   key={idx}
                   href={item.href}
@@ -177,6 +183,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="main-content">
+        {/* Navbar */}
         <header className="topbar">
           <div className="left-section">
             {isMobile && (
@@ -208,22 +215,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        {/* Main Content */}
         <section className="page-content">{children}</section>
 
-        <footer className="footer d-flex flex-column flex-md-row align-items-center justify-content-between py-3 px-4 bg-light border-top">
+        <footer className="footer py-3 px-4 bg-light border-top text-center">
           <span className="text-muted">
-            © {new Date().getFullYear()} Dentist Billing System. All rights
-            reserved.
-          </span>
-          <span className="text-muted mt-2 mt-md-0">
-            Designed and developed by{" "}
-            <a
-              href="https://shreesha99.github.io/personal-website/"
-              target="_blank"
-              className="text-decoration-none"
-            >
-              Shreesha Venkatram
-            </a>
+            © {new Date().getFullYear()} Dentist Billing System
           </span>
         </footer>
       </main>
@@ -249,7 +246,9 @@ export default function RootLayout({
       <body className="app-body">
         <AuthProvider>
           <Toaster position="top-right" reverseOrder={false} />
-          <LayoutContent>{children}</LayoutContent>
+          <ProtectedLayout>
+            <LayoutContent>{children}</LayoutContent>
+          </ProtectedLayout>
         </AuthProvider>
       </body>
     </html>

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -20,27 +20,29 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname() ?? "/";
+
   const logout = async () => {
     try {
-      await auth.signOut();
+      await signOut(auth);
       router.push("/login");
     } catch (err) {
       console.error("Logout failed:", err);
     }
   };
 
-  const router = useRouter();
-  const pathname = usePathname();
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
 
-      // Redirect logic
-      if (!firebaseUser && pathname !== "/login") {
+      // ✅ Allow both /login and /signup without redirecting
+      const publicRoutes = ["/login", "/signup"];
+
+      if (!firebaseUser && !publicRoutes.includes(pathname)) {
         router.push("/login");
-      } else if (firebaseUser && pathname === "/login") {
+      } else if (firebaseUser && publicRoutes.includes(pathname)) {
         router.push("/");
       }
     });

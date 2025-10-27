@@ -31,7 +31,6 @@ export const db = getFirestore(firebaseApp);
 export const auth = getAuth(firebaseApp);
 
 export const googleProvider = new GoogleAuthProvider();
-export const githubProvider = new GithubAuthProvider();
 
 // ------------------ EXISTING BILLS FUNCTIONS ------------------
 
