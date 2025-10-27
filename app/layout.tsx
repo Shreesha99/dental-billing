@@ -17,17 +17,15 @@ import {
   getPatientsWithId,
 } from "../lib/firebase";
 import { Toaster } from "react-hot-toast";
+import { AuthProvider, useAuth } from "./AuthProvider";
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
+  const { user, logout } = useAuth();
 
   const [appointmentsTodayCount, setAppointmentsTodayCount] =
     useState<number>(0);
@@ -108,6 +106,137 @@ export default function RootLayout({
   ];
 
   return (
+    <div className="layout-container">
+      {/* Sidebar */}
+      <aside
+        className={`sidebar ${
+          isMobile ? (sidebarOpen ? "open" : "closed") : "open"
+        }`}
+      >
+        <div className="sidebar-header">
+          <div className="brand">
+            <span className="logo">🦷</span>
+            {(!isMobile || sidebarOpen) && (
+              <span className="brand-text">Dentist</span>
+            )}
+          </div>
+
+          {isMobile && (
+            <button
+              className="toggle-btn"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              {sidebarOpen ? <FiX /> : <FiMenu />}
+            </button>
+          )}
+        </div>
+
+        <nav className="sidebar-nav d-flex flex-column">
+          <div className="grow">
+            {menuItems
+              .filter((item) => item.name !== "Admin")
+              .map((item, idx: number) => (
+                <a
+                  key={idx}
+                  href={item.href}
+                  className={`nav-item ${
+                    pathname === item.href ? "active" : ""
+                  }`}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {(!isMobile || sidebarOpen) && (
+                    <span className="nav-text">{item.name}</span>
+                  )}
+                </a>
+              ))}
+          </div>
+
+          <div>
+            {menuItems
+              .filter((item) => item.name === "Admin")
+              .map((item, idx: number) => (
+                <a
+                  key={idx}
+                  href={item.href}
+                  className={`nav-item ${
+                    pathname === item.href ? "active" : ""
+                  }`}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {(!isMobile || sidebarOpen) && (
+                    <span className="nav-text">{item.name}</span>
+                  )}
+                </a>
+              ))}
+          </div>
+        </nav>
+      </aside>
+
+      {isMobile && sidebarOpen && (
+        <div className="overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <main className="main-content">
+        <header className="topbar">
+          <div className="left-section">
+            {isMobile && (
+              <button
+                className="btn-toggle-mobile"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <FiMenu size={22} />
+              </button>
+            )}
+            <h5 className="page-title">Dentist Billing System</h5>
+          </div>
+          <div className="right-section d-flex align-items-center gap-3">
+            {user ? (
+              <>
+                <div className="user-badge">
+                  <strong>{user.displayName || user.email}</strong>
+                </div>
+                <button
+                  onClick={logout}
+                  className="btn btn-outline-danger btn-sm px-3"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <div className="text-muted small">Not logged in</div>
+            )}
+          </div>
+        </header>
+
+        <section className="page-content">{children}</section>
+
+        <footer className="footer d-flex flex-column flex-md-row align-items-center justify-content-between py-3 px-4 bg-light border-top">
+          <span className="text-muted">
+            © {new Date().getFullYear()} Dentist Billing System. All rights
+            reserved.
+          </span>
+          <span className="text-muted mt-2 mt-md-0">
+            Designed and developed by{" "}
+            <a
+              href="https://shreesha99.github.io/personal-website/"
+              target="_blank"
+              className="text-decoration-none"
+            >
+              Shreesha Venkatram
+            </a>
+          </span>
+        </footer>
+      </main>
+    </div>
+  );
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
     <html lang="en">
       <head>
         <title>Dentist Billing System</title>
@@ -118,121 +247,10 @@ export default function RootLayout({
         <link rel="icon" href="/logo-removebg-preview.png" type="image/png" />
       </head>
       <body className="app-body">
-        <Toaster position="top-right" reverseOrder={false} />
-        {/* <Preloader /> */}
-        <div className="layout-container">
-          {/* Sidebar */}
-          <aside
-            className={`sidebar ${
-              isMobile ? (sidebarOpen ? "open" : "closed") : "open"
-            }`}
-          >
-            <div className="sidebar-header">
-              <div className="brand">
-                <span className="logo">🦷</span>
-                {/* ✅ Show text when sidebar is open on mobile OR always on desktop */}
-                {(!isMobile || sidebarOpen) && (
-                  <span className="brand-text">Dentist</span>
-                )}
-              </div>
-
-              {/* ✅ Toggle only on mobile, switch icons dynamically */}
-              {isMobile && (
-                <button
-                  className="toggle-btn"
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                >
-                  {sidebarOpen ? <FiX /> : <FiMenu />}
-                </button>
-              )}
-            </div>
-
-            <nav className="sidebar-nav d-flex flex-column">
-              <div className="grow">
-                {menuItems
-                  .filter((item) => item.name !== "Admin")
-                  .map((item, idx: number) => (
-                    <a
-                      key={idx}
-                      href={item.href}
-                      className={`nav-item ${
-                        pathname === item.href ? "active" : ""
-                      }`}
-                    >
-                      <span className="nav-icon">{item.icon}</span>
-                      {/* ✅ Show text when sidebar is open on mobile */}
-                      {(!isMobile || sidebarOpen) && (
-                        <span className="nav-text">{item.name}</span>
-                      )}
-                    </a>
-                  ))}
-              </div>
-
-              <div>
-                {menuItems
-                  .filter((item) => item.name === "Admin")
-                  .map((item, idx: number) => (
-                    <a
-                      key={idx}
-                      href={item.href}
-                      className={`nav-item ${
-                        pathname === item.href ? "active" : ""
-                      }`}
-                    >
-                      <span className="nav-icon">{item.icon}</span>
-                      {(!isMobile || sidebarOpen) && (
-                        <span className="nav-text">{item.name}</span>
-                      )}
-                    </a>
-                  ))}
-              </div>
-            </nav>
-          </aside>
-
-          {/* Overlay for mobile */}
-          {isMobile && sidebarOpen && (
-            <div className="overlay" onClick={() => setSidebarOpen(false)} />
-          )}
-
-          {/* Main content */}
-          <main className="main-content">
-            <header className="topbar">
-              <div className="left-section">
-                {isMobile && (
-                  <button
-                    className="btn-toggle-mobile"
-                    onClick={() => setSidebarOpen(true)}
-                  >
-                    <FiMenu size={22} />
-                  </button>
-                )}
-                <h5 className="page-title">Dentist Billing System</h5>
-              </div>
-              <div className="right-section">
-                <div className="user-badge">Current user : Admin</div>
-              </div>
-            </header>
-
-            <section className="page-content">{children}</section>
-
-            <footer className="footer d-flex flex-column flex-md-row align-items-center justify-content-between py-3 px-4 bg-light border-top">
-              <span className="text-muted">
-                © {new Date().getFullYear()} Dentist Billing System. All rights
-                reserved.
-              </span>
-              <span className="text-muted mt-2 mt-md-0">
-                Designed and developed by{" "}
-                <a
-                  href="https://shreesha99.github.io/personal-website/"
-                  target="_blank"
-                  className="text-decoration-none"
-                >
-                  Shreesha Venkatram
-                </a>
-              </span>
-            </footer>
-          </main>
-        </div>
+        <AuthProvider>
+          <Toaster position="top-right" reverseOrder={false} />
+          <LayoutContent>{children}</LayoutContent>
+        </AuthProvider>
       </body>
     </html>
   );

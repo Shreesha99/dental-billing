@@ -9,7 +9,7 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
 
 // Firebase config
 const firebaseConfig = {
@@ -27,6 +27,11 @@ export const firebaseApp =
 
 // Export db
 export const db = getFirestore(firebaseApp);
+
+export const auth = getAuth(firebaseApp);
+
+export const googleProvider = new GoogleAuthProvider();
+export const githubProvider = new GithubAuthProvider();
 
 // ------------------ EXISTING BILLS FUNCTIONS ------------------
 
