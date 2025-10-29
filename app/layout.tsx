@@ -13,7 +13,9 @@ import {
   FiMenu,
   FiCalendar,
   FiX,
+  FiLogOut,
 } from "react-icons/fi";
+import { auth } from "@/lib/firebase";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -112,8 +114,60 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="topbar">
-          <h5 className="page-title mb-0">Dentist Billing System</h5>
+        <header className="topbar d-flex justify-content-between align-items-center px-4 py-3 bg-white border-bottom">
+          {/* Left side — Hamburger + Title */}
+          <div className="d-flex align-items-center gap-3">
+            {isMobile && (
+              <button
+                className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center"
+                style={{ borderRadius: "50%", width: "36px", height: "36px" }}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                {sidebarOpen ? <FiX size={18} /> : <FiMenu size={18} />}
+              </button>
+            )}
+            <h5 className="page-title mb-0 fw-semibold text-primary">
+              {isMobile ? "DBS" : "Dentist Billing System"}
+            </h5>
+          </div>
+
+          {/* Right side — User info + Logout */}
+          <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-center gap-2">
+              <div
+                className="rounded-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center"
+                style={{ width: "35px", height: "35px" }}
+              >
+                {(
+                  auth.currentUser?.displayName?.[0] ||
+                  auth.currentUser?.email?.[0] ||
+                  "D"
+                ).toUpperCase()}
+              </div>
+              <span className="fw-semibold text-primary d-none d-sm-inline">
+                {auth.currentUser?.displayName ||
+                  auth.currentUser?.email ||
+                  "Dentist"}
+              </span>
+            </div>
+            <button
+              className="btn btn-outline-danger d-flex align-items-center justify-content-center"
+              style={{
+                width: "38px",
+                height: "38px",
+                borderRadius: "50%",
+                padding: 0,
+              }}
+              title="Logout"
+              onClick={async () => {
+                const { signOut } = await import("firebase/auth");
+                await signOut(auth);
+                window.location.href = "/login";
+              }}
+            >
+              <FiLogOut size={18} />
+            </button>
+          </div>
         </header>
 
         <section className="page-content">{children}</section>

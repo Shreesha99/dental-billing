@@ -30,7 +30,6 @@ export default function LandingPage() {
   const hasAnimated = useRef(false);
 
   // Fetch data
-  // Fetch data
   useEffect(() => {
     async function fetchDashboardData() {
       setLoading(true);
@@ -137,37 +136,42 @@ export default function LandingPage() {
     if (loading || hasAnimated.current) return;
 
     const timeout = setTimeout(() => {
+      // ✅ Ensure all refs are populated
+      const els = cardsRef.current.filter(Boolean);
+      if (!titleRef.current || els.length < 6) {
+        // Wait until all cards are rendered
+        setTimeout(() => {
+          hasAnimated.current = false; // retry once
+        }, 200);
+        return;
+      }
+
       hasAnimated.current = true;
       const ctx = gsap.context(() => {
         const tl = gsap.timeline();
 
-        if (titleRef.current) {
-          tl.fromTo(
-            titleRef.current,
-            { y: 28, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" }
-          );
-        }
+        tl.fromTo(
+          titleRef.current,
+          { y: 28, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.9, ease: "power3.out" }
+        );
 
-        const els = cardsRef.current.filter(Boolean) as Element[];
-        if (els.length > 0) {
-          tl.fromTo(
-            els,
-            { y: 30, opacity: 0 },
-            {
-              y: 0,
-              opacity: 1,
-              duration: 0.7,
-              stagger: 0.12,
-              ease: "back.out(1.4)",
-            },
-            "-=0.45"
-          );
-        }
+        tl.fromTo(
+          els,
+          { y: 30, opacity: 0 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 0.7,
+            stagger: 0.12,
+            ease: "back.out(1.4)",
+          },
+          "-=0.45"
+        );
       }, containerRef);
 
       return () => ctx.revert();
-    }, 100); // 🔥 small delay ensures DOM is ready
+    }, 150);
 
     return () => clearTimeout(timeout);
   }, [loading]);
