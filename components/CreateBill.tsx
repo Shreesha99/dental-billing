@@ -4,13 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { jsPDF } from "jspdf";
 import QRCode from "react-qr-code";
 import gsap from "gsap";
+import autoTable from "jspdf-autotable";
+import { atob } from "js-base64";
 import toast, { Toaster } from "react-hot-toast";
 import {
   addPatient,
   getBillsByPatient,
   getPatientsWithId,
   saveBillWithPatientId,
+  updateBillStatus,
 } from "../lib/firebase";
+const fontUrl =
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansdevanagari/NotoSansDevanagari-Regular.ttf";
 
 type Patient = { id: string; name: string };
 type Consultation = { description: string; amount: number | null };
@@ -23,6 +28,7 @@ export default function CreateBill() {
   const [consultations, setConsultations] = useState<Consultation[]>([
     { description: "", amount: null },
   ]);
+  const [billPaid, setBillPaid] = useState(false);
   const [billId, setBillId] = useState("");
   const [billGenerated, setBillGenerated] = useState(false);
   const [showPreviousBills, setShowPreviousBills] = useState(false);
@@ -69,6 +75,7 @@ export default function CreateBill() {
     setSelectedPatient(null);
     setConsultations([{ description: "", amount: null }]);
     setBillId("");
+    setBillPaid(false);
     setBillGenerated(false);
     setShowPreviousBills(false);
     setPreviousBills([]);
@@ -127,50 +134,188 @@ export default function CreateBill() {
     }
   };
 
+  const markAsPaid = async () => {
+    if (!billId) return;
+    try {
+      await updateBillStatus(billId, "paid");
+      setBillPaid(true);
+      toast.success("Marked as Paid");
+    } catch (err) {
+      console.error("Error updating bill status:", err);
+      toast.error("Failed to update payment status");
+    }
+  };
+
   // 📄 Download PDF
-  const downloadPDF = () => {
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("Dental Clinic Bill", 105, 20, { align: "center" });
+  const downloadPDF = async (billData?: any) => {
+    try {
+      const isFromHistory = !!billData;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    doc.text(`Patient Name: ${patientName}`, 14, 35);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 42);
+      const targetConsultations = isFromHistory
+        ? billData?.consultations || []
+        : consultations || [];
 
-    const startY = 55;
-    doc.setFont("helvetica", "bold");
-    doc.text("No.", 14, startY);
-    doc.text("Description", 30, startY);
-    doc.text("Amount (Rs.)", 160, startY, { align: "right" });
+      const targetPatientName = isFromHistory
+        ? billData?.patientName || "Unknown Patient"
+        : patientName?.trim() || "Unknown Patient";
 
-    let currentY = startY + 8;
-    consultations.forEach((c, i) => {
+      const targetDate = isFromHistory
+        ? billData?.createdAt?.seconds
+          ? new Date(billData.createdAt.seconds * 1000)
+          : new Date()
+        : new Date();
+
+      if (
+        !Array.isArray(targetConsultations) ||
+        targetConsultations.length === 0
+      ) {
+        toast.error(
+          "No consultation data to download. Please add treatments first."
+        );
+        return;
+      }
+
+      const doc = new jsPDF("p", "mm", "a4");
+
+      // ====== HEADER ======
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text("SHRI DENTAL CLINIC", 105, 20, { align: "center" });
+
       doc.setFont("helvetica", "normal");
-      doc.text(`${i + 1}`, 14, currentY);
-      doc.text(c.description, 30, currentY);
+      doc.setFontSize(11);
+      doc.text("“Caring for Every Smile”", 105, 26, { align: "center" });
       doc.text(
-        `Rs. ${c.amount !== null ? c.amount.toLocaleString("en-IN") : "0"}`,
-        160,
-        currentY,
+        "Reg. No: DCI/2020/56789 | Member: Dental Council of India",
+        105,
+        32,
+        { align: "center" }
+      );
+
+      doc.setFontSize(10);
+      doc.text(
+        "123, MG Road, Bengaluru - 560001 | Ph: +91 98765 43210 | Email: shri.dentalclinic@gmail.com",
+        105,
+        38,
+        { align: "center" }
+      );
+
+      // Divider
+      doc.setDrawColor(100);
+      doc.line(15, 42, 195, 42);
+
+      // ====== BILL TITLE ======
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("DENTAL BILL / RECEIPT", 105, 50, { align: "center" });
+
+      // ====== PATIENT INFO ======
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(`Patient Name: ${targetPatientName}`, 15, 60);
+      doc.text(`Date: ${targetDate.toLocaleDateString("en-IN")}`, 150, 60);
+
+      // ====== TABLE ======
+      // Use INR symbol as plain text (works in helvetica)
+      const inr = "INR";
+
+      const tableData = targetConsultations.map((c: any, i: number) => [
+        i + 1,
+        c.description || "-",
+        `${inr} ${Number(c.amount || 0).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+      ]);
+
+      autoTable(doc, {
+        startY: 68,
+        head: [["#", "Treatment / Description", "Amount"]],
+        body: tableData,
+        theme: "grid",
+        headStyles: {
+          fillColor: [63, 81, 181],
+          textColor: 255,
+          halign: "center",
+          fontSize: 11,
+          fontStyle: "bold",
+        },
+        bodyStyles: {
+          fontSize: 10,
+          lineColor: [220, 220, 220],
+          textColor: [30, 30, 30],
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 12 },
+          1: { halign: "left", cellWidth: 118 },
+          2: { halign: "right", cellWidth: 45 },
+        },
+        margin: { left: 15, right: 15 },
+        styles: { lineWidth: 0.1, cellPadding: 4 },
+      });
+
+      // ====== TOTAL ======
+      const total = targetConsultations.reduce(
+        (sum: number, c: any) => sum + Number(c.amount || 0),
+        0
+      );
+
+      const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Total Amount:", 100, finalY);
+      doc.text(
+        `${inr} ${total.toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        185,
+        finalY,
         { align: "right" }
       );
-      currentY += 8;
-    });
 
-    const total = consultations.reduce(
-      (sum, c) => sum + Number(c.amount || 0),
-      0
-    );
-    doc.setFont("helvetica", "bold");
-    doc.text("Total:", 130, currentY + 10);
-    doc.text(`Rs. ${total.toLocaleString("en-IN")}`, 160, currentY + 10, {
-      align: "right",
-    });
+      // ====== FOOTER ======
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(10);
+      doc.text("Thank you for choosing Shri Dental Clinic!", 105, finalY + 10, {
+        align: "center",
+      });
+      doc.text(
+        "Please revisit every 6 months for routine dental check-up.",
+        105,
+        finalY + 15,
+        { align: "center" }
+      );
 
-    doc.save(`${patientName.replaceAll(" ", "_")}_consultation.pdf`);
-    toast.success("PDF downloaded!");
+      doc.setDrawColor(150);
+      doc.line(130, finalY + 25, 185, finalY + 25);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text("Authorized Dentist Signature", 157, finalY + 30, {
+        align: "center",
+      });
+
+      doc.setFontSize(9);
+      doc.text(
+        "This is a computer-generated bill and does not require a physical signature.",
+        105,
+        285,
+        { align: "center" }
+      );
+
+      const safeFileName = `${targetPatientName.replace(
+        /\s+/g,
+        "_"
+      )}_dental_bill.pdf`;
+      doc.save(safeFileName);
+
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("❌ Error generating PDF:", error);
+      toast.error("Failed to generate bill PDF. Please try again.");
+    }
   };
 
   const canGenerateBill =
@@ -286,7 +431,7 @@ export default function CreateBill() {
                           <td>
                             <button
                               className="btn btn-sm btn-outline-primary"
-                              onClick={downloadPDF}
+                              onClick={() => downloadPDF(bill)}
                             >
                               View
                             </button>
@@ -413,9 +558,18 @@ export default function CreateBill() {
             />
             <p className="mt-2 mb-3">Scan QR to pay the above amount</p>
 
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary" onClick={downloadPDF}>
+            <div className="d-flex gap-2 justify-content-center">
+              <button className="btn btn-primary" onClick={() => downloadPDF()}>
                 Download PDF
+              </button>
+              <button
+                className={`btn ${
+                  billPaid ? "btn-success" : "btn-outline-success"
+                }`}
+                onClick={markAsPaid}
+                disabled={billPaid}
+              >
+                {billPaid ? "✅ Paid" : "Mark as Paid"}
               </button>
               <button className="btn btn-outline-primary" onClick={resetForm}>
                 New Bill

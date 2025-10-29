@@ -193,3 +193,11 @@ export async function getTodayAppointmentsCount(): Promise<number> {
     return startDate === today;
   }).length;
 }
+
+export async function updateBillStatus(billId: string, status: string) {
+  const dentistId = getCurrentDentistId();
+  if (!dentistId) throw new Error("No dentist logged in");
+
+  const billRef = doc(db, "dentists", dentistId, "bills", billId);
+  await updateDoc(billRef, { status });
+}

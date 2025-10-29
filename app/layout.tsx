@@ -229,7 +229,6 @@ export default function RootLayout({
             margin: 0;
             padding: 0;
             height: 100%;
-            overflow: hidden; /* Prevent scrollbars on auth pages */
           }
 
           body {

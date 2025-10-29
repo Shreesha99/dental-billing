@@ -221,7 +221,6 @@ export default function LandingPage() {
               height: "10px",
               background: "#e0e6ef",
               borderRadius: "20px",
-              overflow: "hidden",
             }}
           >
             <div
