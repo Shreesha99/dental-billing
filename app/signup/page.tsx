@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { auth, db, googleProvider } from "../../lib/firebase";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
   signInWithPopup,
+  fetchSignInMethodsForEmail,
 } from "firebase/auth";
-import { setDoc, doc, serverTimestamp } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { setDoc, doc, serverTimestamp, getDoc } from "firebase/firestore";
 import {
   Google,
   EnvelopeFill,
   LockFill,
   PersonFill,
+  ExclamationTriangleFill,
+  Eye,
+  EyeSlash,
 } from "react-bootstrap-icons";
 import gsap from "gsap";
 
@@ -21,7 +25,13 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<{
+    label: string;
+    color: string;
+  }>({ label: "", color: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -33,12 +43,59 @@ export default function SignupPage() {
     );
   }, []);
 
-  // ✅ Handle Email Signup
+  // ✅ Centralized Error Handler
+  const handleFirebaseError = (code: string) => {
+    switch (code) {
+      case "auth/email-already-in-use":
+        return "This email is already registered. Please log in instead.";
+      case "auth/invalid-email":
+        return "Invalid email format. Please check and try again.";
+      case "auth/weak-password":
+        return "Password too weak. Try using at least 6 characters.";
+      case "auth/network-request-failed":
+        return "Network error. Please check your connection and try again.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Please wait a few minutes before trying again.";
+      case "auth/internal-error":
+        return "Unexpected error. Please try again later.";
+      case "auth/popup-closed-by-user":
+        return "Signup cancelled. Please complete the Google login.";
+      case "auth/cancelled-popup-request":
+        return "Another sign-in process is ongoing. Please try again.";
+      default:
+        return "Something went wrong. Please try again.";
+    }
+  };
+
+  // ✅ Password Strength Checker
+  const evaluatePasswordStrength = (pwd: string) => {
+    if (!pwd) return { label: "", color: "" };
+
+    let score = 0;
+    if (pwd.length >= 6) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    switch (score) {
+      case 0:
+      case 1:
+        return { label: "Weak", color: "text-danger" };
+      case 2:
+        return { label: "Moderate", color: "text-warning" };
+      case 3:
+      case 4:
+        return { label: "Strong", color: "text-success" };
+      default:
+        return { label: "", color: "" };
+    }
+  };
+
+  // ✅ Email/Password Signup
   const handleSignup = async () => {
     setError("");
-
-    if (!email || !password || !name) {
-      setError("Please fill all fields.");
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError("Please fill all the required fields.");
       return;
     }
 
@@ -47,17 +104,25 @@ export default function SignupPage() {
       return;
     }
 
+    setLoading(true);
     try {
+      // Check if email already exists
+      const existingMethods = await fetchSignInMethodsForEmail(auth, email);
+      if (existingMethods.length > 0) {
+        setError("This email is already registered. Please log in instead.");
+        setLoading(false);
+        return;
+      }
+
       const userCred = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
       const user = userCred.user;
-
       await updateProfile(user, { displayName: name });
 
-      // ✅ Store user in Firestore
+      // Save user info
       await setDoc(doc(db, "users", user.uid), {
         name,
         email,
@@ -65,31 +130,27 @@ export default function SignupPage() {
       });
 
       router.push("/");
-    } catch (e: any) {
-      console.error(e);
-      switch (e.code) {
-        case "auth/email-already-in-use":
-          setError("This email is already registered. Please log in instead.");
-          break;
-        case "auth/invalid-email":
-          setError("Invalid email address format.");
-          break;
-        case "auth/weak-password":
-          setError(
-            "Password too weak. Try a mix of letters, numbers, and symbols."
-          );
-          break;
-        default:
-          setError("Signup failed. Please try again.");
-      }
+    } catch (err: any) {
+      console.error("Signup Error:", err);
+      setError(handleFirebaseError(err.code));
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ Handle Google Signup
+  // ✅ Google Signup
   const handleGoogleSignup = async () => {
+    setError("");
+    setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        router.push("/");
+        return;
+      }
 
       await setDoc(
         doc(db, "users", user.uid),
@@ -102,27 +163,36 @@ export default function SignupPage() {
       );
 
       router.push("/");
-    } catch (e: any) {
-      setError("Google signup failed. Please try again.");
+    } catch (err: any) {
+      console.error("Google Signup Error:", err);
+      setError(handleFirebaseError(err.code));
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ✅ Update strength dynamically
+  useEffect(() => {
+    setPasswordStrength(evaluatePasswordStrength(password));
+  }, [password]);
+
   return (
-    <div className="d-flex flex-column align-items-center justify-content-center vh-100 bg-light">
+    <div className="d-flex flex-column align-items-center justify-content-center vh-100">
       <div
         ref={cardRef}
         className="card shadow-lg p-4 border-0"
         style={{
           width: "400px",
           borderRadius: "20px",
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(10px)",
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(12px)",
         }}
       >
         <h3 className="text-center mb-3 fw-bold text-primary">
           🦷 Create Account
         </h3>
 
+        {/* Name */}
         <div className="mb-3 position-relative">
           <PersonFill
             size={18}
@@ -135,9 +205,11 @@ export default function SignupPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{ borderRadius: "10px" }}
+            disabled={loading}
           />
         </div>
 
+        {/* Email */}
         <div className="mb-3 position-relative">
           <EnvelopeFill
             size={18}
@@ -150,37 +222,67 @@ export default function SignupPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             style={{ borderRadius: "10px" }}
+            disabled={loading}
           />
         </div>
 
+        {/* Password + Eye + Strength */}
         <div className="mb-2 position-relative">
           <LockFill
             size={18}
             className="text-secondary position-absolute top-50 start-0 translate-middle-y ms-3"
           />
           <input
-            type="password"
-            className="form-control ps-5 py-2"
+            type={showPassword ? "text" : "password"}
+            className="form-control ps-5 pe-5 py-2"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={{ borderRadius: "10px" }}
+            disabled={loading}
           />
+          <span
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              position: "absolute",
+              right: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              cursor: "pointer",
+            }}
+          >
+            {showPassword ? (
+              <EyeSlash size={18} className="text-secondary" />
+            ) : (
+              <Eye size={18} className="text-secondary" />
+            )}
+          </span>
         </div>
 
-        {/* Password Rules + Error */}
-        <div className="text-muted small mb-2">
-          Password must be at least <strong>6 characters</strong> and include a
-          mix of <strong>letters</strong> and <strong>numbers</strong>.
-        </div>
-        {error && <div className="text-danger small mb-3">{error}</div>}
+        {/* Password Strength */}
+        {password && (
+          <div className={`small fw-semibold mb-2 ${passwordStrength.color}`}>
+            Password strength: {passwordStrength.label}
+          </div>
+        )}
+
+        {error && (
+          <div
+            className="alert alert-danger d-flex align-items-center py-2 px-3 mb-3"
+            style={{ borderRadius: "10px" }}
+          >
+            <ExclamationTriangleFill className="me-2" size={18} />
+            <div className="small">{error}</div>
+          </div>
+        )}
 
         <button
           onClick={handleSignup}
           className="btn btn-primary w-100 mb-2 fw-semibold py-2"
           style={{ borderRadius: "10px" }}
+          disabled={loading}
         >
-          Sign Up
+          {loading ? "Creating Account..." : "Sign Up"}
         </button>
 
         <div className="text-center mb-3 text-muted">or</div>
@@ -189,9 +291,12 @@ export default function SignupPage() {
           onClick={handleGoogleSignup}
           className="btn btn-light border w-100 d-flex align-items-center justify-content-center gap-2 py-2 shadow-sm"
           style={{ borderRadius: "10px" }}
+          disabled={loading}
         >
           <Google color="#DB4437" size={20} />
-          <span className="fw-semibold text-dark">Sign up with Google</span>
+          <span className="fw-semibold text-dark">
+            {loading ? "Please wait..." : "Sign up with Google"}
+          </span>
         </button>
 
         <div className="text-center mt-3">
