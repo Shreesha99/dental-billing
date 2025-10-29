@@ -10,6 +10,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // ------------------ FIREBASE CONFIG ------------------
 const firebaseConfig = {
@@ -40,6 +41,9 @@ export function getCurrentDentistId(): string {
   if (!dentistId) throw new Error("Dentist not logged in");
   return dentistId;
 }
+
+export const storage = getStorage(firebaseApp);
+export { ref, uploadBytes, getDownloadURL };
 
 // ------------------ 🧾 BILLS ------------------
 
@@ -200,4 +204,26 @@ export async function updateBillStatus(billId: string, status: string) {
 
   const billRef = doc(db, "dentists", dentistId, "bills", billId);
   await updateDoc(billRef, { status });
+}
+
+// ------------------ 🏥 CLINIC PROFILE ------------------
+
+/**
+ * Fetch clinic profile details for the logged-in dentist
+ * Includes: clinicName, operatingHours, logoUrl, signatureUrl, dentists
+ */
+export async function getClinicProfile() {
+  const dentistId = getCurrentDentistId();
+  const profileRef = doc(db, "dentists", dentistId, "config", "profile");
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return null;
+  return snap.data() as {
+    clinicName?: string;
+    operatingHours?: string;
+    logoUrl?: string;
+    regNo?: string;
+    gstNo?: string;
+    signatureUrl?: string;
+    dentists?: string[];
+  };
 }

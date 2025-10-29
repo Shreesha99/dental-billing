@@ -162,7 +162,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   "D"
                 ).toUpperCase()}
               </div>
-              <span className="fw-semibold text-primary d-none d-sm-inline">
+              <span
+                className="fw-semibold text-primary d-none d-sm-inline"
+                style={{ cursor: "pointer" }}
+                onClick={() => (window.location.href = "/clinic-profile")}
+              >
                 {auth.currentUser?.displayName ||
                   auth.currentUser?.email ||
                   "Dentist"}

@@ -10,6 +10,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   addPatient,
   getBillsByPatient,
+  getClinicProfile,
   getPatientsWithId,
   saveBillWithPatientId,
   updateBillStatus,
@@ -34,6 +35,7 @@ export default function CreateBill() {
   const [showPreviousBills, setShowPreviousBills] = useState(false);
   const [previousBills, setPreviousBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const loaderRef = useRef<SVGSVGElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -148,8 +150,20 @@ export default function CreateBill() {
 
   // 📄 Download PDF
   const downloadPDF = async (billData?: any) => {
+    setPdfLoading(true);
     try {
       const isFromHistory = !!billData;
+
+      // 🦷 Fetch clinic profile
+      const clinic = await getClinicProfile();
+      const clinicName = clinic?.clinicName || "Your Dental Clinic";
+      const operatingHours =
+        clinic?.operatingHours || "Mon–Sat, 9:00 AM – 7:00 PM";
+      const logoUrl = clinic?.logoUrl || "";
+      const signatureUrl = clinic?.signatureUrl || "";
+      const dentistsList = clinic?.dentists?.join(", ") || "";
+      const regNo = clinic?.regNo || "Not Provided";
+      const gstNo = clinic?.gstNo || "Not Provided";
 
       const targetConsultations = isFromHistory
         ? billData?.consultations || []
@@ -178,27 +192,41 @@ export default function CreateBill() {
       const doc = new jsPDF("p", "mm", "a4");
 
       // ====== HEADER ======
+      if (logoUrl) {
+        try {
+          const imgData = await fetch(logoUrl)
+            .then((r) => r.blob())
+            .then(
+              (blob) =>
+                new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                })
+            );
+          doc.addImage(imgData, "PNG", 15, 10, 25, 25);
+        } catch {
+          console.warn("⚠️ Failed to load clinic logo");
+        }
+      }
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
-      doc.text("SHRI DENTAL CLINIC", 105, 20, { align: "center" });
+      doc.text(clinicName.toUpperCase(), 105, 20, { align: "center" });
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      doc.text("“Caring for Every Smile”", 105, 26, { align: "center" });
-      doc.text(
-        "Reg. No: DCI/2020/56789 | Member: Dental Council of India",
-        105,
-        32,
-        { align: "center" }
-      );
+      if (dentistsList)
+        doc.text(`Dentists: ${dentistsList}`, 105, 26, { align: "center" });
+      doc.text(`Operating Hours: ${operatingHours}`, 105, 32, {
+        align: "center",
+      });
 
+      // ✅ Added Reg. No and GST No
       doc.setFontSize(10);
-      doc.text(
-        "123, MG Road, Bengaluru - 560001 | Ph: +91 98765 43210 | Email: shri.dentalclinic@gmail.com",
-        105,
-        38,
-        { align: "center" }
-      );
+      doc.text(`Reg. No: ${regNo} | GST No: ${gstNo}`, 105, 38, {
+        align: "center",
+      });
 
       // Divider
       doc.setDrawColor(100);
@@ -216,9 +244,7 @@ export default function CreateBill() {
       doc.text(`Date: ${targetDate.toLocaleDateString("en-IN")}`, 150, 60);
 
       // ====== TABLE ======
-      // Use INR symbol as plain text (works in helvetica)
       const inr = "INR";
-
       const tableData = targetConsultations.map((c: any, i: number) => [
         i + 1,
         c.description || "-",
@@ -277,23 +303,43 @@ export default function CreateBill() {
       );
 
       // ====== FOOTER ======
+      const footerStartY = finalY + 10;
       doc.setFont("helvetica", "italic");
       doc.setFontSize(10);
-      doc.text("Thank you for choosing Shri Dental Clinic!", 105, finalY + 10, {
+      doc.text(`Thank you for choosing ${clinicName}!`, 105, footerStartY, {
         align: "center",
       });
       doc.text(
         "Please revisit every 6 months for routine dental check-up.",
         105,
-        finalY + 15,
+        footerStartY + 5,
         { align: "center" }
       );
 
+      // Signature section
+      if (signatureUrl) {
+        try {
+          const sigData = await fetch(signatureUrl)
+            .then((r) => r.blob())
+            .then(
+              (blob) =>
+                new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                })
+            );
+          doc.addImage(sigData, "PNG", 140, footerStartY + 10, 40, 20);
+        } catch {
+          console.warn("⚠️ Failed to load signature image");
+        }
+      }
+
       doc.setDrawColor(150);
-      doc.line(130, finalY + 25, 185, finalY + 25);
+      doc.line(130, footerStartY + 32, 185, footerStartY + 32);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text("Authorized Dentist Signature", 157, finalY + 30, {
+      doc.text("Authorized Dentist Signature", 157, footerStartY + 38, {
         align: "center",
       });
 
@@ -315,6 +361,8 @@ export default function CreateBill() {
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
       toast.error("Failed to generate bill PDF. Please try again.");
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -503,7 +551,7 @@ export default function CreateBill() {
           onClick={addConsultation}
           disabled={!canAddConsultation}
         >
-          + Add Consultation
+          + Add Treatment
         </button>
 
         {/* ✅ Generate Bill */}
@@ -578,6 +626,36 @@ export default function CreateBill() {
           </div>
         )}
       </div>
+      {/* 🌀 PDF Preloader Overlay */}
+      {pdfLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(255, 255, 255, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            flexDirection: "column",
+            gap: "10px",
+          }}
+        >
+          <div
+            className="spinner-border text-primary"
+            role="status"
+            style={{ width: "3rem", height: "3rem" }}
+          >
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="fw-semibold text-primary mt-3">
+            Generating your bill...
+          </p>
+        </div>
+      )}
     </div>
   );
 }

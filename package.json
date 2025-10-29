@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.919.0",
     "@fontsource/inter": "^5.2.8",
     "bootstrap": "^5.3.8",
     "chart.js": "^4.5.1",
