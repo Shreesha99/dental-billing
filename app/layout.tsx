@@ -14,6 +14,8 @@ import {
   FiCalendar,
   FiX,
   FiLogOut,
+  FiPaperclip,
+  FiList,
 } from "react-icons/fi";
 import { auth } from "@/lib/firebase";
 
@@ -40,7 +42,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     { name: "Home", href: "/", icon: <FiHome /> },
     { name: "Create Bill", href: "/create-bill", icon: <FiFileText /> },
     { name: "Calendar", href: "/calendar", icon: <FiCalendar /> },
-    { name: "Admin", href: "/admin/login", icon: <FiUser /> },
+    { name: "Patients", href: "/patients", icon: <FiList /> },
   ];
 
   // 🦷 Public layout (Login / Signup)
@@ -105,6 +107,22 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               )}
             </a>
           ))}
+          {/* Admin at bottom */}
+          <div className="mt-auto">
+            <a
+              href="/admin/login"
+              className={`nav-item ${
+                pathname === "/admin/login" ? "active" : ""
+              }`}
+            >
+              <span className="nav-icon">
+                <FiUser />
+              </span>
+              {(!isMobile || sidebarOpen) && (
+                <span className="nav-text">Admin</span>
+              )}
+            </a>
+          </div>
         </nav>
       </aside>
 

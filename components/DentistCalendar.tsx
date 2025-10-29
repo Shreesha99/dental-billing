@@ -295,7 +295,7 @@ export default function DentistCalendar() {
               {/* ✅ Patient name + dropdown */}
               <div className="col-md-6">
                 <div className="input-group mb-3">
-                  <div className="form-floating flex-grow-1">
+                  <div className="form-floating grow">
                     <Form.Control
                       id="patientName"
                       type="text"
