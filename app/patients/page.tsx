@@ -8,6 +8,9 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db, getCurrentDentistId } from "../../lib/firebase";
@@ -15,7 +18,12 @@ import {
   PlusCircle,
   Search,
   ExclamationTriangleFill,
+  PencilSquare,
+  Trash,
+  CheckCircle,
+  XCircle,
 } from "react-bootstrap-icons";
+import toast, { Toaster } from "react-hot-toast";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 export default function PatientsPage() {
@@ -27,6 +35,15 @@ export default function PatientsPage() {
   const [showModal, setShowModal] = useState(false);
   const [newPatient, setNewPatient] = useState({ name: "", phone: "" });
   const [error, setError] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<{ name: string; phone: string }>({
+    name: "",
+    phone: "",
+  });
+  const [editError, setEditError] = useState<{ name?: string; phone?: string }>(
+    {}
+  );
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubscribe: any;
@@ -60,6 +77,7 @@ export default function PatientsPage() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
+  // ✅ Add patient
   const handleAddPatient = async () => {
     setError("");
 
@@ -69,7 +87,6 @@ export default function PatientsPage() {
       return;
     }
 
-    // Phone validation — India-style (10 digits)
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(phone)) {
       setError("Please enter a valid 10-digit phone number.");
@@ -77,8 +94,6 @@ export default function PatientsPage() {
     }
 
     const dentistId = getCurrentDentistId();
-
-    // Check if patient with same name exists
     const patientsRef = collection(db, "dentists", dentistId, "patients");
     const q = query(patientsRef, where("name", "==", name.trim()));
     const existing = await getDocs(q);
@@ -96,9 +111,59 @@ export default function PatientsPage() {
       });
       setNewPatient({ name: "", phone: "" });
       setShowModal(false);
+      toast.success("Patient added successfully!");
     } catch (err) {
       console.error("Error adding patient:", err);
-      setError("Failed to add patient. Please try again.");
+      toast.error("Failed to add patient.");
+    }
+  };
+
+  // ✅ Edit
+  const handleEdit = (p: any) => {
+    setEditId(p.id);
+    setEditData({ name: p.name, phone: p.phone });
+    setEditError({});
+  };
+
+  const validateEdit = () => {
+    const errors: any = {};
+    if (!editData.name.trim()) errors.name = "Name cannot be empty.";
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(editData.phone))
+      errors.phone = "Invalid 10-digit phone number.";
+    setEditError(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (!validateEdit()) return;
+
+    try {
+      const dentistId = getCurrentDentistId();
+      const ref = doc(db, "dentists", dentistId, "patients", id);
+      await updateDoc(ref, {
+        name: editData.name.trim(),
+        phone: editData.phone.trim(),
+      });
+      setEditId(null);
+      toast.success("Patient updated successfully!");
+    } catch (err) {
+      console.error("Error updating patient:", err);
+      toast.error("Failed to update patient.");
+    }
+  };
+
+  // ✅ Inline delete confirmation
+  const handleConfirmDelete = async (id: string) => {
+    try {
+      const dentistId = getCurrentDentistId();
+      const ref = doc(db, "dentists", dentistId, "patients", id);
+      await deleteDoc(ref);
+      toast.success("Patient deleted successfully!");
+      setConfirmDeleteId(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete patient.");
     }
   };
 
@@ -108,6 +173,7 @@ export default function PatientsPage() {
 
   return (
     <div className="p-6">
+      <Toaster position="top-right" />
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="fw-semibold fs-4">Patients</h2>
@@ -152,15 +218,116 @@ export default function PatientsPage() {
                 <th>Patient Name</th>
                 <th>Phone</th>
                 <th>Created At</th>
+                <th style={{ width: "20%" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((p, i) => (
                 <tr key={p.id}>
                   <td>{i + 1}</td>
-                  <td>{p.name}</td>
-                  <td>{p.phone}</td>
+
+                  {/* Name */}
+                  <td>
+                    {editId === p.id ? (
+                      <>
+                        <input
+                          type="text"
+                          className={`form-control form-control-sm ${
+                            editError.name ? "is-invalid" : ""
+                          }`}
+                          value={editData.name}
+                          onChange={(e) =>
+                            setEditData({ ...editData, name: e.target.value })
+                          }
+                        />
+                        {editError.name && (
+                          <div className="invalid-feedback small">
+                            {editError.name}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      p.name
+                    )}
+                  </td>
+
+                  {/* Phone */}
+                  <td>
+                    {editId === p.id ? (
+                      <>
+                        <input
+                          type="tel"
+                          className={`form-control form-control-sm ${
+                            editError.phone ? "is-invalid" : ""
+                          }`}
+                          value={editData.phone}
+                          onChange={(e) =>
+                            setEditData({ ...editData, phone: e.target.value })
+                          }
+                        />
+                        {editError.phone && (
+                          <div className="invalid-feedback small">
+                            {editError.phone}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      p.phone
+                    )}
+                  </td>
+
+                  {/* Date */}
                   <td>{p.createdAt}</td>
+
+                  {/* Actions */}
+                  <td className="text-center">
+                    {confirmDeleteId === p.id ? (
+                      <div className="d-flex justify-content-center gap-2">
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleConfirmDelete(p.id)}
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : editId === p.id ? (
+                      <div className="d-flex justify-content-center gap-2">
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleSaveEdit(p.id)}
+                        >
+                          <CheckCircle size={16} />
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setEditId(null)}
+                        >
+                          <XCircle size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="d-flex justify-content-center gap-2">
+                        <button
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => handleEdit(p)}
+                        >
+                          <PencilSquare size={16} />
+                        </button>
+                        <button
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => setConfirmDeleteId(p.id)}
+                        >
+                          <Trash size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -168,14 +335,12 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Add Patient Modal */}
       {showModal && (
         <div
           className="modal fade show d-block"
           tabIndex={-1}
-          style={{
-            background: "rgba(0, 0, 0, 0.5)",
-          }}
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
         >
           <div className="modal-dialog modal-dialog-centered">
             <div
@@ -192,7 +357,6 @@ export default function PatientsPage() {
               </div>
 
               <div className="modal-body">
-                {/* Error Alert — same style as signup */}
                 {error && (
                   <div
                     className="alert alert-danger d-flex align-items-center py-2 px-3 mb-3"
