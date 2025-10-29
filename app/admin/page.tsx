@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getFirestore, collectionGroup, getDocs } from "firebase/firestore";
+import { firebaseApp } from "@/lib/firebase";
 
 type Consultation = {
   description: string;
@@ -12,14 +14,17 @@ type Bill = {
   id: string;
   patientName: string;
   consultations: Consultation[];
-  createdAt: { seconds: number };
+  createdAt: { seconds: number; nanoseconds?: number };
+  dentistId?: string;
 };
 
 export default function AdminDashboard() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const db = getFirestore(firebaseApp);
 
+  // Redirect non-admins
   useEffect(() => {
     const isAdmin = localStorage.getItem("isAdmin");
     if (!isAdmin) {
@@ -31,18 +36,33 @@ export default function AdminDashboard() {
     async function fetchBills() {
       setLoading(true);
       try {
-        const res = await fetch("/api/get-all-bills");
-        if (!res.ok) throw new Error("Failed to fetch bills");
-        const data = await res.json();
-        setBills(data);
+        // 🧾 Fetch all bills across all dentists
+        const billsSnapshot = await getDocs(collectionGroup(db, "bills"));
+        const fetchedBills = billsSnapshot.docs.map((doc) => {
+          const data = doc.data() as Omit<Bill, "id">;
+
+          return {
+            ...data,
+            id: doc.id, // ✅ Always use Firestore doc ID, not inner data.id
+            dentistId: doc.ref.parent.parent?.id || "unknown",
+          };
+        });
+
+        // Sort newest first
+        fetchedBills.sort(
+          (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+        );
+
+        setBills(fetchedBills);
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching bills:", err);
       } finally {
         setLoading(false);
       }
     }
+
     fetchBills();
-  }, []);
+  }, [db]);
 
   const handleLogout = () => {
     localStorage.removeItem("isAdmin");
@@ -54,7 +74,7 @@ export default function AdminDashboard() {
       className="container py-5"
       style={{ fontFamily: "Inter, sans-serif", maxWidth: "1000px" }}
     >
-      {/* Logout header */}
+      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="text-primary fw-bold mb-0">Patient History Dashboard</h2>
         <button
@@ -66,7 +86,7 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Logout reminder */}
+      {/* Reminder */}
       <div
         className="alert alert-warning text-center fw-bold"
         role="alert"
@@ -80,7 +100,7 @@ export default function AdminDashboard() {
         system to protect patient data!
       </div>
 
-      {/* Bills table */}
+      {/* Bills Table */}
       {loading ? (
         <p>Loading bills...</p>
       ) : bills.length === 0 ? (
@@ -92,24 +112,26 @@ export default function AdminDashboard() {
               <tr>
                 <th>#</th>
                 <th>Patient Name</th>
+                <th>Dentist ID</th>
                 <th>Date</th>
-                <th>Total (Rs.)</th>
+                <th>Total (₹)</th>
               </tr>
             </thead>
             <tbody>
               {bills.map((b, i) => {
-                const total = b.consultations.reduce(
+                const total = b.consultations?.reduce(
                   (sum, c) => sum + Number(c.amount || 0),
                   0
                 );
                 return (
-                  <tr key={b.id}>
+                  <tr key={`${b.dentistId}-${b.id}`}>
                     <td>{i + 1}</td>
                     <td>{b.patientName}</td>
+                    <td className="text-muted small">{b.dentistId}</td>
                     <td>
                       {new Date(
                         (b.createdAt?.seconds || 0) * 1000
-                      ).toLocaleDateString()}
+                      ).toLocaleDateString("en-IN")}
                     </td>
                     <td>₹{total.toLocaleString("en-IN")}</td>
                   </tr>

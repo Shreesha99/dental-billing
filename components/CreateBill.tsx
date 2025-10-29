@@ -7,7 +7,7 @@ import gsap from "gsap";
 import toast, { Toaster } from "react-hot-toast";
 import {
   addPatient,
-  getBillsByPatientId,
+  getBillsByPatient,
   getPatientsWithId,
   saveBillWithPatientId,
 } from "../lib/firebase";
@@ -32,7 +32,7 @@ export default function CreateBill() {
   const loaderRef = useRef<SVGSVGElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
 
-  // GSAP loader animation
+  // 🔄 GSAP loader animation
   useEffect(() => {
     if (loading && loaderRef.current) {
       gsap.to(loaderRef.current, {
@@ -45,7 +45,7 @@ export default function CreateBill() {
     } else gsap.killTweensOf(loaderRef.current);
   }, [loading]);
 
-  // Fetch patients
+  // 👩‍⚕️ Fetch patients list
   useEffect(() => {
     const fetchPatients = async () => {
       const data = await getPatientsWithId();
@@ -54,7 +54,7 @@ export default function CreateBill() {
     fetchPatients();
   }, []);
 
-  // Helper functions
+  // 🧾 Helpers
   const addConsultation = () =>
     setConsultations([...consultations, { description: "", amount: null }]);
   const updateConsultation = (idx: number, field: string, value: any) => {
@@ -74,13 +74,14 @@ export default function CreateBill() {
     setPreviousBills([]);
   };
 
+  // 🧍‍♀️ Handle patient selection
   const handlePatientSelect = async (patientId: string) => {
     const patient = patients.find((p) => p.id === patientId) || null;
     setSelectedPatient(patient);
     setPatientName(patient?.name || "");
 
     if (patient) {
-      const bills = await getBillsByPatientId(patient.id);
+      const bills = await getBillsByPatient(patient.name);
       setPreviousBills(bills);
       setShowPreviousBills(true);
     } else {
@@ -90,6 +91,7 @@ export default function CreateBill() {
     }
   };
 
+  // 🧾 Generate Bill
   const generateBill = async () => {
     if (!patientName.trim()) return toast.error("Enter patient name");
     setLoading(true);
@@ -125,6 +127,7 @@ export default function CreateBill() {
     }
   };
 
+  // 📄 Download PDF
   const downloadPDF = () => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
@@ -185,7 +188,7 @@ export default function CreateBill() {
       <div className="card shadow-sm p-4 mx-auto" style={{ maxWidth: "700px" }}>
         <h2 className="text-primary mb-3 text-center">Create New Bill</h2>
 
-        {/* Patient Type */}
+        {/* 🧍‍♂️ Patient Type */}
         <div className="mb-3">
           <label className="form-label fw-semibold">Patient Type</label>
           <div className="d-flex gap-3">
@@ -220,7 +223,7 @@ export default function CreateBill() {
           </div>
         </div>
 
-        {/* Patient Selection */}
+        {/* 🧾 Patient Selection */}
         {patientType === "existing" ? (
           <div className="mb-3">
             <label className="form-label fw-semibold">Select Patient</label>
@@ -249,7 +252,7 @@ export default function CreateBill() {
           </div>
         )}
 
-        {/* Previous Bills Table */}
+        {/* 📜 Previous Bills */}
         {showPreviousBills && selectedPatient && (
           <div className="mb-3">
             <h5>Previous Bills for {selectedPatient.name}</h5>
@@ -304,7 +307,7 @@ export default function CreateBill() {
           </div>
         )}
 
-        {/* Consultations */}
+        {/* 💬 Consultations */}
         <h5 className="mt-3 mb-2">Consultations</h5>
         {consultations.map((c, i) => (
           <div className="row mb-2 g-2 align-items-center" key={i}>
@@ -358,7 +361,7 @@ export default function CreateBill() {
           + Add Consultation
         </button>
 
-        {/* Generate Bill */}
+        {/* ✅ Generate Bill */}
         <button
           className="btn btn-success w-100 mb-3 d-flex justify-content-center align-items-center"
           onClick={generateBill}
@@ -386,7 +389,7 @@ export default function CreateBill() {
           Generate Bill
         </button>
 
-        {/* Bill Preview */}
+        {/* 🧾 Bill Preview */}
         {billId && (
           <div
             ref={billRef}
