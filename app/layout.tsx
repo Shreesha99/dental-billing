@@ -18,10 +18,12 @@ import {
   FiList,
 } from "react-icons/fi";
 import { auth } from "@/lib/firebase";
+import { FiClock } from "react-icons/fi";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [currentTime, setCurrentTime] = useState<string>("");
   const pathname = usePathname() ?? "/";
 
   const publicRoutes = ["/login", "/signup"];
@@ -36,6 +38,23 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setCurrentTime(
+        now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+      );
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const menuItems = [
@@ -149,6 +168,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
             </h5>
           </div>
 
+          {/* Center — Live Clock */}
+          <div className="d-none d-md-flex align-items-center gap-2 text-primary">
+            <FiClock size={20} />
+            <span>{currentTime}</span>
+          </div>
+
           {/* Right side — User info + Logout */}
           <div className="d-flex align-items-center gap-3">
             <div className="d-flex align-items-center gap-2">
@@ -194,10 +219,23 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
         <section className="page-content">{children}</section>
 
-        <footer className="footer py-3 px-4 bg-light border-top text-center">
-          <span className="text-muted">
-            © {new Date().getFullYear()} Dentist Billing System
-          </span>
+        <footer className="footer py-3 px-4 bg-light border-top">
+          <div className="d-flex justify-content-between align-items-center">
+            <span className="text-muted">
+              © {new Date().getFullYear()} Dentist Billing System
+            </span>
+            <span className="small text-muted">
+              Designed and developed by{" "}
+              <a
+                href="https://shreesha99.github.io/personal-website/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-decoration-none fw-semibold text-primary"
+              >
+                Shreesha Venkatram
+              </a>
+            </span>
+          </div>
         </footer>
       </main>
     </div>
