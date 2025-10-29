@@ -108,7 +108,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
             </a>
           ))}
           {/* Admin at bottom */}
-          <div className="mt-auto">
+          {/* <div className="mt-auto">
             <a
               href="/admin/login"
               className={`nav-item ${
@@ -122,7 +122,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                 <span className="nav-text">Admin</span>
               )}
             </a>
-          </div>
+          </div> */}
         </nav>
       </aside>
 
