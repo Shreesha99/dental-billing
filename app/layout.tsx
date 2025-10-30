@@ -16,6 +16,7 @@ import {
   FiLogOut,
   FiPaperclip,
   FiList,
+  FiPlusCircle,
 } from "react-icons/fi";
 import { auth } from "@/lib/firebase";
 import { FiClock } from "react-icons/fi";
@@ -59,9 +60,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
   const menuItems = [
     { name: "Home", href: "/", icon: <FiHome /> },
-    { name: "Create Bill", href: "/create-bill", icon: <FiFileText /> },
+    { name: "Create Bill", href: "/create-bill", icon: <FiPlusCircle /> },
     { name: "Calendar", href: "/calendar", icon: <FiCalendar /> },
     { name: "Patients", href: "/patients", icon: <FiList /> },
+    { name: "Patient documents", href: "/patients-docs", icon: <FiFileText /> },
   ];
 
   // 🦷 Public layout (Login / Signup)

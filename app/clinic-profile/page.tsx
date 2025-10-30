@@ -86,14 +86,15 @@ export default function ClinicProfilePage() {
     if (!file) return;
 
     const fileSizeMB = file.size / (1024 * 1024);
-    setCurrentFileSize(Number(fileSizeMB.toFixed(2)));
+    const roundedSize = Number(fileSizeMB.toFixed(2));
+    setCurrentFileSize(roundedSize);
 
-    if (fileSizeMB < 0.1 || fileSizeMB > 5) {
+    // ✅ Accept files up to 5 MB
+    if (fileSizeMB > 5) {
       toast.error(
-        `File size must be between 0.1 MB and 5 MB (Yours: ${fileSizeMB.toFixed(
-          2
-        )} MB)`
+        `File size must be less than 5 MB (Yours: ${roundedSize} MB)`
       );
+      console.warn("⛔ File too large — skipping upload");
       return;
     }
 
@@ -117,14 +118,13 @@ export default function ClinicProfilePage() {
           setUploadProgress(progress);
         },
         (error) => {
-          console.error("Upload failed:", error);
+          console.error("❌ Upload failed:", error);
           toast.error("❌ File upload failed");
           setUploadProgress(null);
         },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           const refDoc = doc(db, "dentists", dentistId, "config", "profile");
-
           await setDoc(
             refDoc,
             type === "logo"
@@ -138,6 +138,7 @@ export default function ClinicProfilePage() {
 
           setUploadProgress(null);
           setUploadType(null);
+          setCurrentFileSize(null);
           toast.success(
             type === "logo"
               ? "Clinic logo uploaded successfully!"
@@ -146,7 +147,7 @@ export default function ClinicProfilePage() {
         }
       );
     } catch (err) {
-      console.error(err);
+      console.error("🔥 Unexpected error:", err);
       toast.error("File upload failed");
       setUploadProgress(null);
     }
