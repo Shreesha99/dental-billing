@@ -176,7 +176,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
           {/* Right side — User info + Logout */}
           <div className="d-flex align-items-center gap-3">
-            <div className="d-flex align-items-center gap-2">
+            <div
+              className="d-flex align-items-center gap-2"
+              style={{ cursor: "pointer" }}
+              onClick={() => (window.location.href = "/clinic-profile")}
+            >
               <div
                 className="rounded-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center"
                 style={{ width: "35px", height: "35px" }}
@@ -187,11 +191,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   "D"
                 ).toUpperCase()}
               </div>
-              <span
-                className="fw-semibold text-primary d-none d-sm-inline"
-                style={{ cursor: "pointer" }}
-                onClick={() => (window.location.href = "/clinic-profile")}
-              >
+              <span className="fw-semibold text-primary d-none d-sm-inline">
                 {auth.currentUser?.displayName ||
                   auth.currentUser?.email ||
                   "Dentist"}
