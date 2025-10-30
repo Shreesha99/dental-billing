@@ -203,13 +203,36 @@ export async function saveBillWithPatientId(
   patientName: string,
   consultations: any[]
 ) {
-  const dentistId = getCurrentDentistId();
-  const docRef = await addDoc(dentistCol(dentistId, "bills"), {
+  let dentistId: string | null = null;
+  try {
+    dentistId = getCurrentDentistId();
+  } catch {
+    console.warn(
+      "⚠️ No dentistId found in client, using fallback localStorage"
+    );
+    dentistId =
+      typeof window !== "undefined" ? localStorage.getItem("dentistId") : null;
+  }
+
+  if (!dentistId) {
+    console.error("❌ Dentist ID missing during bill creation");
+    throw new Error("Dentist not logged in");
+  }
+
+  const billData = {
     dentistId,
     patientId,
     patientName,
     consultations,
     createdAt: new Date(),
+  };
+
+  const docRef = await addDoc(dentistCol(dentistId, "bills"), billData);
+  console.log("🧾 Bill created successfully:", {
+    billId: docRef.id,
+    patientName,
+    dentistId,
+    consultationsCount: consultations.length,
   });
   return docRef.id;
 }
