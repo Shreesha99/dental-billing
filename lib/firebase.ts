@@ -37,6 +37,10 @@ const dentistCol = (dentistId: string, subCol: string) =>
 // ------------------ 🔐 AUTH HELPERS ------------------
 
 export function getCurrentDentistId(): string {
+  if (typeof window === "undefined") {
+    // Server environment — no localStorage access
+    throw new Error("getCurrentDentistId() called on server");
+  }
   const dentistId = auth.currentUser?.uid || localStorage.getItem("dentistId");
   if (!dentistId) throw new Error("Dentist not logged in");
   return dentistId;
@@ -62,12 +66,32 @@ export async function saveBillMetadata(
   return docRef.id;
 }
 
-export async function getBillMetadata(id: string) {
-  const dentistId = getCurrentDentistId();
-  const docRef = doc(db, "dentists", dentistId, "bills", id);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) throw new Error("Bill not found");
-  return docSnap.data();
+/**
+ * ✅ getBillMetadata() – Safe for both client & server
+ * If called on the client, uses current dentist ID.
+ * If called on the server (no localStorage), auto-scans all dentists.
+ */
+export async function getBillMetadata(id: string): Promise<any> {
+  try {
+    const dentistId = getCurrentDentistId();
+    const ref = doc(db, "dentists", dentistId, "bills", id);
+    const snap = await getDoc(ref);
+    if (snap.exists()) return { dentistId, ...snap.data() };
+  } catch {
+    // Server mode — fallback to global search
+    const dentistsSnap = await getDoc(doc(db, "meta", "dentistIndex"));
+    const dentistIds = dentistsSnap.exists()
+      ? dentistsSnap.data()?.ids || []
+      : [];
+
+    for (const dentistId of dentistIds) {
+      const ref = doc(db, "dentists", dentistId, "bills", id);
+      const snap = await getDoc(ref);
+      if (snap.exists()) return { dentistId, ...snap.data() };
+    }
+  }
+
+  throw new Error("Bill not found");
 }
 
 export async function getAllBills() {
@@ -209,21 +233,26 @@ export async function updateBillStatus(billId: string, status: string) {
 // ------------------ 🏥 CLINIC PROFILE ------------------
 
 /**
- * Fetch clinic profile details for the logged-in dentist
- * Includes: clinicName, operatingHours, logoUrl, signatureUrl, dentists
+ * Fetch clinic profile details for a dentist.
+ * Works both client-side and server-side.
  */
-export async function getClinicProfile() {
-  const dentistId = getCurrentDentistId();
-  const profileRef = doc(db, "dentists", dentistId, "config", "profile");
-  const snap = await getDoc(profileRef);
-  if (!snap.exists()) return null;
-  return snap.data() as {
-    clinicName?: string;
-    operatingHours?: string;
-    logoUrl?: string;
-    regNo?: string;
-    gstNo?: string;
-    signatureUrl?: string;
-    dentists?: string[];
-  };
+export async function getClinicProfile(dentistId?: string) {
+  try {
+    const effectiveId = dentistId || getCurrentDentistId();
+    const profileRef = doc(db, "dentists", effectiveId, "config", "profile");
+    const snap = await getDoc(profileRef);
+    return snap.exists()
+      ? (snap.data() as {
+          clinicName?: string;
+          operatingHours?: string;
+          logoUrl?: string;
+          regNo?: string;
+          gstNo?: string;
+          signatureUrl?: string;
+          dentists?: string[];
+        })
+      : null;
+  } catch {
+    return null;
+  }
 }

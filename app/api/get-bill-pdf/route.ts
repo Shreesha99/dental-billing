@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { getBillMetadata, getClinicProfile } from "@/lib/firebase";
+import { getBillMetadata, getClinicProfile } from "../../../lib/firebase";
 
 export async function GET(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
+    // Fetch bill and clinic data (server-safe)
     const bill = await getBillMetadata(id);
-    if (!bill || !bill.consultations)
+    if (!bill)
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
+    const clinic = await getClinicProfile(bill.dentistId);
 
-    const clinic = await getClinicProfile();
     const clinicName = clinic?.clinicName || "Your Dental Clinic";
     const operatingHours =
       clinic?.operatingHours || "Mon–Sat, 9:00 AM – 7:00 PM";
@@ -27,16 +28,16 @@ export async function GET(req: NextRequest) {
     // ====== HEADER ======
     if (logoUrl) {
       try {
-        const resp = await fetch(logoUrl);
-        const blob = await resp.blob();
-        const reader = await new Promise<string>((resolve) => {
+        const res = await fetch(logoUrl);
+        const blob = await res.blob();
+        const base64 = await new Promise<string>((resolve) => {
           const fr = new FileReader();
           fr.onloadend = () => resolve(fr.result as string);
           fr.readAsDataURL(blob);
         });
-        doc.addImage(reader, "PNG", 15, 10, 25, 25);
+        doc.addImage(base64, "PNG", 15, 10, 25, 25);
       } catch {
-        console.warn("⚠️ Failed to load logo");
+        console.warn("⚠️ Failed to load logo image");
       }
     }
 
@@ -51,12 +52,10 @@ export async function GET(req: NextRequest) {
     doc.text(`Operating Hours: ${operatingHours}`, 105, 32, {
       align: "center",
     });
-
     doc.setFontSize(10);
     doc.text(`Reg. No: ${regNo} | GST No: ${gstNo}`, 105, 38, {
       align: "center",
     });
-
     doc.setDrawColor(100);
     doc.line(15, 42, 195, 42);
 
@@ -70,7 +69,6 @@ export async function GET(req: NextRequest) {
     const date = bill.createdAt?.seconds
       ? new Date(bill.createdAt.seconds * 1000)
       : new Date();
-
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     doc.text(`Patient Name: ${patientName}`, 15, 60);
@@ -149,14 +147,14 @@ export async function GET(req: NextRequest) {
 
     if (signatureUrl) {
       try {
-        const resp = await fetch(signatureUrl);
-        const blob = await resp.blob();
-        const reader = await new Promise<string>((resolve) => {
+        const res = await fetch(signatureUrl);
+        const blob = await res.blob();
+        const base64 = await new Promise<string>((resolve) => {
           const fr = new FileReader();
           fr.onloadend = () => resolve(fr.result as string);
           fr.readAsDataURL(blob);
         });
-        doc.addImage(reader, "PNG", 140, footerStartY + 10, 40, 20);
+        doc.addImage(base64, "PNG", 140, footerStartY + 10, 40, 20);
       } catch {
         console.warn("⚠️ Failed to load signature");
       }
@@ -190,9 +188,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("❌ PDF generation error:", err);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
