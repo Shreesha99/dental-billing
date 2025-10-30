@@ -74,21 +74,23 @@ export async function saveBillMetadata(
  */
 export async function getBillMetadata(id: string): Promise<any> {
   try {
+    // 🦷 Try client-side first (if localStorage/auth available)
     const dentistId = getCurrentDentistId();
     const ref = doc(db, "dentists", dentistId, "bills", id);
     const snap = await getDoc(ref);
     if (snap.exists()) return { dentistId, ...snap.data() };
   } catch {
-    // Server mode — fallback to global search
-    const dentistsSnap = await getDoc(doc(db, "meta", "dentistIndex"));
-    const dentistIds = dentistsSnap.exists()
-      ? dentistsSnap.data()?.ids || []
-      : [];
+    // Server mode (no localStorage/auth)
+  }
 
-    for (const dentistId of dentistIds) {
-      const ref = doc(db, "dentists", dentistId, "bills", id);
-      const snap = await getDoc(ref);
-      if (snap.exists()) return { dentistId, ...snap.data() };
+  // 🧾 Server fallback — scan all dentists dynamically
+  const dentistsSnap = await getDocs(collection(db, "dentists"));
+  for (const dentistDoc of dentistsSnap.docs) {
+    const dentistId = dentistDoc.id;
+    const billRef = doc(db, "dentists", dentistId, "bills", id);
+    const billSnap = await getDoc(billRef);
+    if (billSnap.exists()) {
+      return { dentistId, ...billSnap.data() };
     }
   }
 
