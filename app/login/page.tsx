@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { auth, db, googleProvider } from "../../lib/firebase";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import {
+  fetchSignInMethodsForEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
 import { useRouter } from "next/navigation";
 import {
   Google,
@@ -33,8 +38,8 @@ export default function LoginPage() {
     );
   }, []);
 
-  // ✅ Centralized Firebase Error Handler (same as signup)
-  const handleFirebaseError = (code: string) => {
+  // ✅ Centralized Firebase Error Handler
+  const handleFirebaseError = (code?: string, fallback?: string) => {
     switch (code) {
       case "auth/invalid-email":
         return "Invalid email format. Please check and try again.";
@@ -44,20 +49,31 @@ export default function LoginPage() {
         return "No account found with this email.";
       case "auth/wrong-password":
         return "Incorrect password. Please try again.";
+      case "auth/invalid-credential":
+        return "Invalid email or password. Please double-check your credentials.";
       case "auth/too-many-requests":
-        return "Too many failed attempts. Please wait and try again later.";
+        return "Too many failed attempts. Please wait a few minutes and try again.";
       case "auth/network-request-failed":
         return "Network error. Please check your internet connection.";
       case "auth/popup-closed-by-user":
         return "Login cancelled. Please complete the Google sign-in.";
+      case "auth/popup-blocked":
+        return "Your browser blocked the sign-in popup. Please allow popups and retry.";
+      case "auth/cancelled-popup-request":
+        return "Another sign-in popup was opened. Please try again.";
+      case "auth/internal-error":
+        return "Unexpected error occurred. Please try again.";
       default:
-        return "Something went wrong. Please try again.";
+        if (fallback?.includes("auth/"))
+          return "Something went wrong. Please try again.";
+        return fallback || "Unexpected error. Please try again.";
     }
   };
 
   // ✅ Handle Email Login
   const handleEmailLogin = async () => {
     setError("");
+
     if (!email.trim() || !password.trim()) {
       setError("Please fill in both email and password.");
       return;
@@ -65,35 +81,54 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
+      // Step 1: Check sign-in methods for this email
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      console.log("Sign-in methods for", email, ":", methods);
+
+      // Step 2: If the email is linked only to Google, show friendly message
+      if (methods.includes("google.com") && !methods.includes("password")) {
+        setError(
+          "This email is registered with Google. Please use 'Continue with Google' to sign in."
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Step 3: Ensure we are signed out before attempting login
+      await signOut(auth);
+
+      // Step 4: Attempt password login
       await signInWithEmailAndPassword(auth, email, password);
+
+      // Step 5: Redirect to dashboard
       router.push("/");
     } catch (err: any) {
-      console.error("Login Error:", err);
-      setError(handleFirebaseError(err.code));
+      console.error("❌ [handleEmailLogin] Error:", err);
+      setError(handleFirebaseError(err.code, err.message));
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Handle Google Login
   // ✅ Handle Google Login (auto-create dentist if not found)
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
 
     try {
-      // 🔹 Step 1: Login with Google
+      await signOut(auth);
+
+      // Step 1: Login with Google
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const dentistId = user.uid;
 
-      // 🔹 Step 2: Check if dentist exists in Firestore
+      // Step 2: Check if dentist exists in Firestore
       const dentistRef = doc(db, "dentists", dentistId);
       const snap = await getDoc(dentistRef);
 
       if (!snap.exists()) {
-        // 🆕 First time Google login — create dentist entry
-
+        // Step 3: Create dentist entry for first-time Google login
         await setDoc(dentistRef, {
           name: user.displayName || "New Dentist",
           email: user.email || "",
@@ -106,12 +141,21 @@ export default function LoginPage() {
           },
         });
       }
-      localStorage.setItem("dentistId", dentistId);
 
+      localStorage.setItem("dentistId", dentistId);
       router.push("/");
     } catch (err: any) {
       console.error("❌ [GoogleLogin] Error:", err);
-      setError(handleFirebaseError(err.code));
+      const friendly = handleFirebaseError(err.code, err.message);
+
+      if (
+        err.code === "auth/popup-closed-by-user" ||
+        err.message?.includes("popup")
+      ) {
+        setError("You closed the sign-in window. Please try again.");
+      } else {
+        setError(friendly);
+      }
     } finally {
       setLoading(false);
     }
@@ -176,10 +220,10 @@ export default function LoginPage() {
           </span>
         </div>
 
-        {/* Error Alert (Styled same as signup) */}
+        {/* Error Alert */}
         {error && (
           <div
-            className="alert alert-danger d-flex align-items-center py-2 px-3 mb-3"
+            className="alert alert-danger fade show d-flex align-items-center py-2 px-3 mb-3"
             style={{ borderRadius: "10px" }}
           >
             <ExclamationTriangleFill className="me-2" size={18} />

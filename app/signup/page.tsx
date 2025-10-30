@@ -43,7 +43,6 @@ export default function SignupPage() {
     );
   }, []);
 
-  // ✅ Centralized Error Handler
   const handleFirebaseError = (code: string) => {
     switch (code) {
       case "auth/email-already-in-use":
@@ -67,16 +66,13 @@ export default function SignupPage() {
     }
   };
 
-  // ✅ Password Strength Checker
   const evaluatePasswordStrength = (pwd: string) => {
     if (!pwd) return { label: "", color: "" };
-
     let score = 0;
     if (pwd.length >= 6) score++;
     if (/[A-Z]/.test(pwd)) score++;
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
-
     switch (score) {
       case 0:
       case 1:
@@ -91,7 +87,7 @@ export default function SignupPage() {
     }
   };
 
-  // ✅ Email/Password Signup
+  // ✅ Email/Password Signup (Dentist-only)
   const handleSignup = async () => {
     setError("");
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -99,14 +95,8 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      return;
-    }
-
     setLoading(true);
     try {
-      // Check if email already exists
       const existingMethods = await fetchSignInMethodsForEmail(auth, email);
       if (existingMethods.length > 0) {
         setError("This email is already registered. Please log in instead.");
@@ -114,6 +104,7 @@ export default function SignupPage() {
         return;
       }
 
+      // 🔹 Create Firebase user
       const userCred = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -122,13 +113,20 @@ export default function SignupPage() {
       const user = userCred.user;
       await updateProfile(user, { displayName: name });
 
-      // Save user info
-      await setDoc(doc(db, "users", user.uid), {
+      // 🔹 Create dentist record in Firestore
+      await setDoc(doc(db, "dentists", user.uid), {
         name,
         email,
         createdAt: serverTimestamp(),
+        photoURL: user.photoURL || "",
+        clinicProfile: {
+          clinicName: "",
+          operatingHours: "",
+          dentists: [],
+        },
       });
 
+      localStorage.setItem("dentistId", user.uid);
       router.push("/");
     } catch (err: any) {
       console.error("Signup Error:", err);
@@ -138,30 +136,31 @@ export default function SignupPage() {
     }
   };
 
-  // ✅ Google Signup
+  // ✅ Google Signup (auto-create dentist if new)
   const handleGoogleSignup = async () => {
     setError("");
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      const dentistRef = doc(db, "dentists", user.uid);
+      const snap = await getDoc(dentistRef);
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        router.push("/");
-        return;
+      if (!snap.exists()) {
+        await setDoc(dentistRef, {
+          name: user.displayName || "New Dentist",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          createdAt: new Date(),
+          clinicProfile: {
+            clinicName: "",
+            operatingHours: "",
+            dentists: [],
+          },
+        });
       }
 
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          name: user.displayName,
-          email: user.email,
-          createdAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
+      localStorage.setItem("dentistId", user.uid);
       router.push("/");
     } catch (err: any) {
       console.error("Google Signup Error:", err);
@@ -171,7 +170,6 @@ export default function SignupPage() {
     }
   };
 
-  // ✅ Update strength dynamically
   useEffect(() => {
     setPasswordStrength(evaluatePasswordStrength(password));
   }, [password]);
@@ -226,7 +224,7 @@ export default function SignupPage() {
           />
         </div>
 
-        {/* Password + Eye + Strength */}
+        {/* Password */}
         <div className="mb-2 position-relative">
           <LockFill
             size={18}
@@ -259,7 +257,6 @@ export default function SignupPage() {
           </span>
         </div>
 
-        {/* Password Strength */}
         {password && (
           <div className={`small fw-semibold mb-2 ${passwordStrength.color}`}>
             Password strength: {passwordStrength.label}
