@@ -4,16 +4,48 @@ import autoTable from "jspdf-autotable";
 import { getBillMetadata, getClinicProfile } from "../../../lib/firebase";
 
 export async function GET(req: NextRequest) {
+  console.log("📥 [API] /get-bill-pdf called:", req.url);
+
   try {
     const id = req.nextUrl.searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+    if (!id) {
+      console.error("❌ Missing bill ID");
+      return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+    }
 
-    // Fetch bill and clinic data (server-safe)
+    console.log("🔍 Fetching bill metadata for ID:", id);
+
+    // 🧾 STEP 1: Fetch bill metadata
     const bill = await getBillMetadata(id);
-    if (!bill)
+    console.log("📦 Bill fetch result:", bill ? "✅ Found" : "❌ Not Found");
+
+    if (!bill) {
+      console.error("❌ Bill not found for ID:", id);
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
+    }
+
+    console.log("🦷 Bill details:", {
+      id,
+      dentistId: bill.dentistId,
+      patientName: bill.patientName,
+      consultations: bill.consultations?.length,
+    });
+
+    // 🏥 STEP 2: Fetch clinic data
+    console.log("🏥 Fetching clinic profile for dentist:", bill.dentistId);
     const clinic = await getClinicProfile(bill.dentistId);
 
+    if (!clinic) {
+      console.warn("⚠️ No clinic profile found for dentist:", bill.dentistId);
+    } else {
+      console.log("🏥 Clinic profile loaded:", {
+        name: clinic.clinicName,
+        logo: !!clinic.logoUrl,
+        dentists: clinic.dentists?.length || 0,
+      });
+    }
+
+    // Extract clinic data
     const clinicName = clinic?.clinicName || "Your Dental Clinic";
     const operatingHours =
       clinic?.operatingHours || "Mon–Sat, 9:00 AM – 7:00 PM";
@@ -23,11 +55,14 @@ export async function GET(req: NextRequest) {
     const regNo = clinic?.regNo || "Not Provided";
     const gstNo = clinic?.gstNo || "Not Provided";
 
+    console.log("🧾 Starting PDF generation for:", bill.patientName);
+
     const doc = new jsPDF("p", "mm", "a4");
 
     // ====== HEADER ======
     if (logoUrl) {
       try {
+        console.log("🖼️ Loading logo:", logoUrl);
         const res = await fetch(logoUrl);
         const blob = await res.blob();
         const base64 = await new Promise<string>((resolve) => {
@@ -36,11 +71,15 @@ export async function GET(req: NextRequest) {
           fr.readAsDataURL(blob);
         });
         doc.addImage(base64, "PNG", 15, 10, 25, 25);
-      } catch {
-        console.warn("⚠️ Failed to load logo image");
+        console.log("✅ Logo added");
+      } catch (err) {
+        console.warn("⚠️ Failed to load logo image:", err);
       }
+    } else {
+      console.log("ℹ️ No logo URL found, skipping image");
     }
 
+    // Clinic header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.text(clinicName.toUpperCase(), 105, 20, { align: "center" });
@@ -76,7 +115,10 @@ export async function GET(req: NextRequest) {
 
     // ====== TABLE ======
     const inr = "INR";
-    const tableData = bill.consultations.map((c: any, i: number) => [
+    const consultations = bill.consultations || [];
+    console.log("🧾 Adding consultations:", consultations.length);
+
+    const tableData = consultations.map((c: any, i: number) => [
       i + 1,
       c.description || "-",
       `${inr} ${Number(c.amount || 0).toLocaleString("en-IN", {
@@ -112,12 +154,11 @@ export async function GET(req: NextRequest) {
       styles: { lineWidth: 0.1, cellPadding: 4 },
     });
 
-    const total = bill.consultations.reduce(
+    const total = consultations.reduce(
       (sum: number, c: any) => sum + Number(c.amount || 0),
       0
     );
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text("Total Amount:", 100, finalY);
@@ -147,6 +188,7 @@ export async function GET(req: NextRequest) {
 
     if (signatureUrl) {
       try {
+        console.log("🖋️ Loading signature:", signatureUrl);
         const res = await fetch(signatureUrl);
         const blob = await res.blob();
         const base64 = await new Promise<string>((resolve) => {
@@ -155,9 +197,12 @@ export async function GET(req: NextRequest) {
           fr.readAsDataURL(blob);
         });
         doc.addImage(base64, "PNG", 140, footerStartY + 10, 40, 20);
-      } catch {
-        console.warn("⚠️ Failed to load signature");
+        console.log("✅ Signature added");
+      } catch (err) {
+        console.warn("⚠️ Failed to load signature:", err);
       }
+    } else {
+      console.log("ℹ️ No signature URL found, skipping");
     }
 
     doc.setDrawColor(150);
@@ -176,7 +221,11 @@ export async function GET(req: NextRequest) {
       { align: "center" }
     );
 
+    console.log("✅ PDF generation complete for patient:", patientName);
+
     const pdfBytes = doc.output("arraybuffer");
+    console.log("📤 Returning PDF response");
+
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
@@ -187,7 +236,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("❌ PDF generation error:", err);
+    console.error("💥 PDF generation error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

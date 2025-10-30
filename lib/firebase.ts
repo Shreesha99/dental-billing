@@ -68,37 +68,70 @@ export async function saveBillMetadata(
 }
 
 export async function getBillMetadata(id: string): Promise<any> {
+  console.log("📥 [getBillMetadata] Called with ID:", id);
+
   try {
-    // Try client-side dentist
+    console.log(
+      "🦷 [getBillMetadata] Trying to get current dentist ID (client mode)"
+    );
     const dentistId = getCurrentDentistId();
+    console.log("✅ [getBillMetadata] Found current dentist ID:", dentistId);
+
     const ref = doc(db, "dentists", dentistId, "bills", id);
+    console.log(
+      "🔗 [getBillMetadata] Fetching doc from path: dentists/",
+      dentistId,
+      "/bills/",
+      id
+    );
     const snap = await getDoc(ref);
-    if (snap.exists()) return { dentistId, ...snap.data() };
-  } catch {
-    console.warn("Client dentistId unavailable, trying direct bill search");
+
+    if (snap.exists()) {
+      console.log(
+        "✅ [getBillMetadata] Bill found under current dentist:",
+        dentistId
+      );
+      return { dentistId, ...snap.data() };
+    } else {
+      console.warn(
+        "⚠️ [getBillMetadata] Bill not found under current dentist, scanning all dentists…"
+      );
+    }
+  } catch (err) {
+    console.warn(
+      "⚠️ [getBillMetadata] Could not get dentistId from client:",
+      err
+    );
+    console.warn(
+      "🔁 [getBillMetadata] Falling back to direct search in all dentists"
+    );
   }
 
-  // 🚀 NEW: Try to find bill directly by scanning dentists
+  // 🚀 Try to find bill directly by scanning all dentists
   const dentistsRef = collection(db, "dentists");
   const dentistsSnap = await getDocs(dentistsRef);
-
   console.log(
-    `🔍 Found ${dentistsSnap.docs.length} dentists, scanning for bill ${id}`
+    `🧾 [getBillMetadata] Found ${dentistsSnap.docs.length} dentist docs to scan for bill ${id}`
   );
 
   for (const d of dentistsSnap.docs) {
     const dentistId = d.id;
+    console.log("🔍 [getBillMetadata] Checking dentist:", dentistId);
     const ref = doc(db, "dentists", dentistId, "bills", id);
     const snap = await getDoc(ref);
     if (snap.exists()) {
+      console.log(
+        `✅ [getBillMetadata] FOUND bill ${id} under dentist ${dentistId}`
+      );
       const bill = snap.data() as any;
-      console.log(`✅ Found bill under dentist ${dentistId}`);
       return { dentistId, ...bill };
     }
   }
 
+  console.error("❌ [getBillMetadata] Bill not found anywhere for id:", id);
   throw new Error("Bill not found");
 }
+
 export async function getAllBills() {
   const dentistId = getCurrentDentistId();
   const snapshot = await getDocs(dentistCol(dentistId, "bills"));

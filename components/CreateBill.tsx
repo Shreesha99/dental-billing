@@ -135,11 +135,21 @@ export default function CreateBill() {
 
   // 🧾 Generate Bill
   const generateBill = async () => {
-    if (!patientName.trim()) return toast.error("Enter patient name");
+    console.log(
+      "🧾 [generateBill] Triggered - patientType:",
+      patientType,
+      "name:",
+      patientName
+    );
 
-    // 🔢 Validate phone number only for new patients
+    if (!patientName.trim()) {
+      console.error("❌ [generateBill] Missing patient name");
+      return toast.error("Enter patient name");
+    }
+
     if (patientType === "new") {
       if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+        console.error("❌ [generateBill] Invalid phone number:", phone);
         toast.error(
           "Enter a valid 10-digit phone number before generating bill"
         );
@@ -150,22 +160,47 @@ export default function CreateBill() {
     setLoading(true);
     try {
       let patientId = selectedPatient?.id || "";
+      console.log(
+        "👤 [generateBill] Initial patientId:",
+        patientId || "(none)"
+      );
+
       const dentistId = await getDentistId();
+      console.log("🦷 [generateBill] Dentist ID resolved:", dentistId);
+
       if (!dentistId) throw new Error("Dentist ID missing");
+
       if (patientType === "new") {
+        console.log("🧍 [generateBill] Creating NEW patient:", patientName);
         patientId = await addPatient(patientName);
+        console.info(
+          "✅ [generateBill] New patient created with ID:",
+          patientId
+        );
         toast.success("Patient added successfully!");
-        console.info("👤 New patient created:", patientId);
       } else {
-        console.info("👤 Existing patient selected:", patientId);
+        console.info("👤 [generateBill] Existing patient selected:", patientId);
       }
 
+      console.log(
+        "💾 [generateBill] Saving bill with dentistId:",
+        dentistId,
+        "patientId:",
+        patientId
+      );
       const newBillId = await saveBillWithDentist(
         dentistId,
         patientId,
         patientName,
         consultations
       );
+
+      console.log("✅ [generateBill] Bill saved successfully:", {
+        billId: newBillId,
+        dentistId,
+        patientId,
+        consultationsCount: consultations.length,
+      });
 
       console.info("🧾 Bill created successfully:", {
         billId: newBillId,
@@ -181,14 +216,11 @@ export default function CreateBill() {
       setBillGenerated(true);
       toast.success("Bill generated successfully!");
 
-      // 📩 Send SMS using your Twilio route (only for new patient)
+      // 📩 Send SMS
       if (patientType === "new" && phone.trim()) {
         try {
           const smsBody = `Dear ${patientName}, your dental bill is ready. Download it here: ${window.location.origin}/api/get-bill-pdf?id=${newBillId}`;
-          console.info("📩 Sending SMS:", {
-            to: `+91${phone.trim()}`,
-            messagePreview: smsBody.slice(0, 80) + "...",
-          });
+          console.info("📩 [generateBill] Preparing SMS:", smsBody);
 
           const smsRes = await fetch("/api/send-sms", {
             method: "POST",
@@ -200,17 +232,17 @@ export default function CreateBill() {
           });
 
           const result = await smsRes.json();
-          console.info("📩 SMS API Response:", result);
+          console.info("📩 [generateBill] SMS API Response:", result);
 
           if (result.success) toast.success("SMS sent to patient!");
           else toast.error(`⚠️ SMS failed: ${result.error || "Unknown error"}`);
         } catch (smsErr) {
-          console.error("❌ Failed to send SMS:", smsErr);
+          console.error("❌ [generateBill] Failed to send SMS:", smsErr);
           toast.error("Bill saved but SMS not sent.");
         }
       }
 
-      console.log("🧾 New bill ID:", newBillId);
+      console.log("🧾 [generateBill] New bill ID:", newBillId);
       if (billRef.current) {
         gsap.fromTo(
           billRef.current,
@@ -219,10 +251,11 @@ export default function CreateBill() {
         );
       }
     } catch (err) {
-      console.error("❌ Bill generation failed:", err);
+      console.error("💥 [generateBill] FAILED:", err);
       toast.error("Something went wrong while generating the bill");
     } finally {
       setLoading(false);
+      console.log("🧾 [generateBill] Done (loading=false)");
     }
   };
 
