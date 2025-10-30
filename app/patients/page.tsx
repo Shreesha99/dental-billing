@@ -82,39 +82,58 @@ export default function PatientsPage() {
     setError("");
 
     const { name, phone } = newPatient;
-    if (!name.trim() || !phone.trim()) {
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+
+    // 🧩 1️⃣ Basic validation
+    if (!trimmedName || !trimmedPhone) {
       setError("Please fill all fields before saving.");
       return;
     }
 
+    // 🧩 2️⃣ Validate 10-digit Indian phone number (starts with 6-9)
     const phoneRegex = /^[6-9]\d{9}$/;
-    if (!phoneRegex.test(phone)) {
-      setError("Please enter a valid 10-digit phone number.");
+    if (!phoneRegex.test(trimmedPhone)) {
+      setError("Please enter a valid 10-digit Indian phone number.");
       return;
     }
 
     const dentistId = getCurrentDentistId();
     const patientsRef = collection(db, "dentists", dentistId, "patients");
-    const q = query(patientsRef, where("name", "==", name.trim()));
-    const existing = await getDocs(q);
-
-    if (!existing.empty) {
-      setError("A patient with this exact name already exists.");
-      return;
-    }
 
     try {
+      // 🧩 3️⃣ Check if patient with same name or phone already exists
+      const snapshot = await getDocs(patientsRef);
+
+      const duplicate = snapshot.docs.find((doc) => {
+        const data = doc.data() as any;
+        return (
+          data.name.trim().toLowerCase() === trimmedName.toLowerCase() ||
+          data.phone === trimmedPhone
+        );
+      });
+
+      if (duplicate) {
+        const data = duplicate.data() as any;
+        if (data.phone === trimmedPhone)
+          setError("A patient with this phone number already exists.");
+        else setError("A patient with this name already exists.");
+        return;
+      }
+
+      // 🧩 4️⃣ Add new patient
       await addDoc(patientsRef, {
-        name: name.trim(),
-        phone: phone.trim(),
+        name: trimmedName,
+        phone: trimmedPhone,
         createdAt: serverTimestamp(),
       });
+
+      toast.success("Patient added successfully!");
       setNewPatient({ name: "", phone: "" });
       setShowModal(false);
-      toast.success("Patient added successfully!");
     } catch (err) {
-      console.error("Error adding patient:", err);
-      toast.error("Failed to add patient.");
+      console.error("❌ Error adding patient:", err);
+      setError("Failed to add patient. Please try again.");
     }
   };
 
@@ -172,7 +191,13 @@ export default function PatientsPage() {
   );
 
   return (
-    <div className="p-6">
+    <div
+      className="p-3 p-md-5"
+      style={{
+        maxWidth: "100vw",
+        overflowX: "hidden",
+      }}
+    >
       <Toaster position="top-right" />
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -191,15 +216,19 @@ export default function PatientsPage() {
             />
           </div>
           <button
-            className="btn btn-primary rounded-circle d-flex align-items-center justify-content-center"
-            style={{ width: "40px", height: "40px" }}
+            className="btn btn-primary fw-semibold d-flex align-items-center gap-2 shadow-sm px-3 py-2"
+            style={{
+              borderRadius: "20px",
+              whiteSpace: "nowrap",
+            }}
             onClick={() => {
               setNewPatient({ name: "", phone: "" });
               setError("");
               setShowModal(true);
             }}
           >
-            <PlusCircle size={20} />
+            <PlusCircle size={18} />
+            <span className="d-none d-sm-inline">Add Patient</span>
           </button>
         </div>
       </div>
@@ -284,13 +313,13 @@ export default function PatientsPage() {
                     {confirmDeleteId === p.id ? (
                       <div className="d-flex justify-content-center gap-2">
                         <button
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-sm px-3 fw-semibold"
                           onClick={() => handleConfirmDelete(p.id)}
                         >
                           Confirm
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-sm px-3 fw-semibold"
                           onClick={() => setConfirmDeleteId(null)}
                         >
                           Cancel
@@ -299,13 +328,15 @@ export default function PatientsPage() {
                     ) : editId === p.id ? (
                       <div className="d-flex justify-content-center gap-2">
                         <button
-                          className="btn btn-success btn-sm"
+                          className="btn btn-success btn-sm rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+                          style={{ width: "32px", height: "32px" }}
                           onClick={() => handleSaveEdit(p.id)}
                         >
                           <CheckCircle size={16} />
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-outline-secondary btn-sm rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+                          style={{ width: "32px", height: "32px" }}
                           onClick={() => setEditId(null)}
                         >
                           <XCircle size={16} />
@@ -314,13 +345,23 @@ export default function PatientsPage() {
                     ) : (
                       <div className="d-flex justify-content-center gap-2">
                         <button
-                          className="btn btn-outline-primary btn-sm"
+                          className="btn btn-outline-primary btn-sm rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            transition: "all 0.2s ease",
+                          }}
                           onClick={() => handleEdit(p)}
                         >
                           <PencilSquare size={16} />
                         </button>
                         <button
-                          className="btn btn-outline-danger btn-sm"
+                          className="btn btn-outline-danger btn-sm rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            transition: "all 0.2s ease",
+                          }}
                           onClick={() => setConfirmDeleteId(p.id)}
                         >
                           <Trash size={16} />
