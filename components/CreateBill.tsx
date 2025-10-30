@@ -122,6 +122,9 @@ export default function CreateBill() {
       if (patientType === "new") {
         patientId = await addPatient(patientName);
         toast.success("Patient added successfully!");
+        console.info("👤 New patient created:", patientId);
+      } else {
+        console.info("👤 Existing patient selected:", patientId);
       }
 
       const newBillId = await saveBillWithPatientId(
@@ -129,6 +132,17 @@ export default function CreateBill() {
         patientName,
         consultations
       );
+
+      console.info("🧾 Bill created successfully:", {
+        billId: newBillId,
+        patientName,
+        dentistId:
+          typeof window !== "undefined"
+            ? localStorage.getItem("dentistId")
+            : "server",
+        consultationsCount: consultations.length,
+      });
+
       setBillId(newBillId);
       setBillGenerated(true);
       toast.success("Bill generated successfully!");
@@ -137,6 +151,11 @@ export default function CreateBill() {
       if (patientType === "new" && phone.trim()) {
         try {
           const smsBody = `Dear ${patientName}, your dental bill is ready. Download it here: ${window.location.origin}/api/get-bill-pdf?id=${newBillId}`;
+          console.info("📩 Sending SMS:", {
+            to: `+91${phone.trim()}`,
+            messagePreview: smsBody.slice(0, 80) + "...",
+          });
+
           const smsRes = await fetch("/api/send-sms", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -145,15 +164,18 @@ export default function CreateBill() {
               message: smsBody,
             }),
           });
+
           const result = await smsRes.json();
+          console.info("📩 SMS API Response:", result);
 
           if (result.success) toast.success("SMS sent to patient!");
           else toast.error(`⚠️ SMS failed: ${result.error || "Unknown error"}`);
         } catch (smsErr) {
-          console.error("Failed to send SMS:", smsErr);
+          console.error("❌ Failed to send SMS:", smsErr);
           toast.error("Bill saved but SMS not sent.");
         }
       }
+
       console.log("🧾 New bill ID:", newBillId);
       if (billRef.current) {
         gsap.fromTo(
@@ -163,7 +185,7 @@ export default function CreateBill() {
         );
       }
     } catch (err) {
-      console.error(err);
+      console.error("❌ Bill generation failed:", err);
       toast.error("Something went wrong while generating the bill");
     } finally {
       setLoading(false);
