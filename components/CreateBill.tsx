@@ -9,12 +9,16 @@ import { atob } from "js-base64";
 import toast, { Toaster } from "react-hot-toast";
 import {
   addPatient,
+  auth,
+  db,
   getBillsByPatient,
   getClinicProfile,
   getPatientsWithId,
+  saveBillWithDentist,
   saveBillWithPatientId,
   updateBillStatus,
 } from "../lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 const fontUrl =
   "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansdevanagari/NotoSansDevanagari-Regular.ttf";
 
@@ -102,6 +106,33 @@ export default function CreateBill() {
     }
   };
 
+  // 🔍 Get dentist ID safely (from auth or localStorage)
+  async function getDentistId(): Promise<string> {
+    if (typeof window === "undefined")
+      throw new Error("getDentistId called on server");
+
+    // 1️⃣ Try Firebase Auth
+    const authDentistId = auth.currentUser?.uid;
+    if (authDentistId) {
+      localStorage.setItem("dentistId", authDentistId);
+      return authDentistId;
+    }
+
+    // 2️⃣ Try localStorage
+    const storedId = localStorage.getItem("dentistId");
+    if (storedId) return storedId;
+
+    // 3️⃣ Try Firestore fallback (optional, if you store dentist info somewhere)
+    const dentistsSnap = await getDocs(collection(db, "dentists"));
+    if (!dentistsSnap.empty) {
+      const firstDentist = dentistsSnap.docs[0].id;
+      localStorage.setItem("dentistId", firstDentist);
+      return firstDentist;
+    }
+
+    throw new Error("Dentist not found in auth, localStorage, or Firestore");
+  }
+
   // 🧾 Generate Bill
   const generateBill = async () => {
     if (!patientName.trim()) return toast.error("Enter patient name");
@@ -119,6 +150,8 @@ export default function CreateBill() {
     setLoading(true);
     try {
       let patientId = selectedPatient?.id || "";
+      const dentistId = await getDentistId();
+      if (!dentistId) throw new Error("Dentist ID missing");
       if (patientType === "new") {
         patientId = await addPatient(patientName);
         toast.success("Patient added successfully!");
@@ -127,7 +160,8 @@ export default function CreateBill() {
         console.info("👤 Existing patient selected:", patientId);
       }
 
-      const newBillId = await saveBillWithPatientId(
+      const newBillId = await saveBillWithDentist(
+        dentistId,
         patientId,
         patientName,
         consultations

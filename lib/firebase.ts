@@ -237,6 +237,39 @@ export async function saveBillWithPatientId(
   return docRef.id;
 }
 
+/**
+ * 💾 saveBillWithDentist()
+ * Explicitly saves a bill with a known dentistId (recommended for new flow)
+ */
+export async function saveBillWithDentist(
+  dentistId: string,
+  patientId: string,
+  patientName: string,
+  consultations: any[]
+) {
+  if (!dentistId) throw new Error("Dentist ID is required to save bill");
+
+  const billData = {
+    dentistId,
+    patientId,
+    patientName,
+    consultations,
+    createdAt: new Date(),
+  };
+
+  const billsCol = collection(db, "dentists", dentistId, "bills");
+  const docRef = await addDoc(billsCol, billData);
+
+  console.log("🧾 Bill created (with explicit dentistId):", {
+    billId: docRef.id,
+    patientName,
+    dentistId,
+    consultationsCount: consultations.length,
+  });
+
+  return docRef.id;
+}
+
 // ------------------ 📊 DASHBOARD HELPERS ------------------
 
 export async function getTodayAppointmentsCount(): Promise<number> {
