@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { auth, googleProvider } from "../../lib/firebase";
+import { auth, db, googleProvider } from "../../lib/firebase";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import {
@@ -14,6 +14,7 @@ import {
 } from "react-bootstrap-icons";
 import gsap from "gsap";
 import Link from "next/link";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -75,14 +76,54 @@ export default function LoginPage() {
   };
 
   // ✅ Handle Google Login
+  // ✅ Handle Google Login (auto-create dentist if not found)
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
+
     try {
-      await signInWithPopup(auth, googleProvider);
+      // 🔹 Step 1: Login with Google
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const dentistId = user.uid;
+
+      console.log("📩 [GoogleLogin] Signed in as:", user.email, dentistId);
+
+      // 🔹 Step 2: Check if dentist exists in Firestore
+      const dentistRef = doc(db, "dentists", dentistId);
+      const snap = await getDoc(dentistRef);
+
+      if (!snap.exists()) {
+        // 🆕 First time Google login — create dentist entry
+        console.log("🦷 [GoogleLogin] Dentist not found, creating new profile");
+
+        await setDoc(dentistRef, {
+          name: user.displayName || "New Dentist",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          createdAt: new Date(),
+          clinicProfile: {
+            clinicName: "",
+            operatingHours: "",
+            dentists: [],
+          },
+        });
+
+        console.log("✅ [GoogleLogin] Dentist profile created:", dentistId);
+      } else {
+        console.log(
+          "✅ [GoogleLogin] Dentist profile already exists:",
+          dentistId
+        );
+      }
+
+      // 🔹 Step 3: Store dentist ID locally and continue
+      localStorage.setItem("dentistId", dentistId);
+      console.log("💾 [GoogleLogin] Stored dentistId:", dentistId);
+
       router.push("/");
     } catch (err: any) {
-      console.error("Google Login Error:", err);
+      console.error("❌ [GoogleLogin] Error:", err);
       setError(handleFirebaseError(err.code));
     } finally {
       setLoading(false);
