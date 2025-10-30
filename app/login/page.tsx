@@ -140,6 +140,7 @@ export default function LoginPage() {
             className="text-secondary position-absolute top-50 start-0 translate-middle-y ms-3"
           />
           <input
+            name="email"
             type="email"
             className="form-control ps-5 py-2"
             placeholder="Email Address"
@@ -157,6 +158,7 @@ export default function LoginPage() {
             className="text-secondary position-absolute top-50 start-0 translate-middle-y ms-3"
           />
           <input
+            name="password"
             type={showPassword ? "text" : "password"}
             className="form-control ps-5 pe-5 py-2"
             placeholder="Password"
