@@ -154,7 +154,7 @@ export default function CreateBill() {
           toast.error("Bill saved but SMS not sent.");
         }
       }
-
+      console.log("🧾 New bill ID:", newBillId);
       if (billRef.current) {
         gsap.fromTo(
           billRef.current,
