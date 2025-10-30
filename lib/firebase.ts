@@ -59,6 +59,7 @@ export async function saveBillMetadata(
   console.log("🧾 Saving bill metadata:", { dentistId, patientName });
   const billsCol = dentistCol(dentistId, "bills");
   const docRef = await addDoc(billsCol, {
+    dentistId,
     patientName,
     consultations,
     createdAt: new Date(),
@@ -200,6 +201,7 @@ export async function saveBillWithPatientId(
 ) {
   const dentistId = getCurrentDentistId();
   const docRef = await addDoc(dentistCol(dentistId, "bills"), {
+    dentistId,
     patientId,
     patientName,
     consultations,
