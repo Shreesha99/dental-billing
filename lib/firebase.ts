@@ -68,67 +68,67 @@ export async function saveBillMetadata(
 }
 
 export async function getBillMetadata(id: string): Promise<any> {
-  console.log("📥 [getBillMetadata] Called with ID:", id);
+  console.log("📥 [getBillMetadata] Called for ID:", id);
 
-  try {
-    console.log(
-      "🦷 [getBillMetadata] Trying to get current dentist ID (client mode)"
-    );
-    const dentistId = getCurrentDentistId();
-    console.log("✅ [getBillMetadata] Found current dentist ID:", dentistId);
+  // 🔹 Step 1: Detect environment
+  const isServer = typeof window === "undefined";
+  console.log(
+    "🌐 [getBillMetadata] Environment:",
+    isServer ? "Server" : "Client"
+  );
 
+  let dentistId: string | null = null;
+
+  // 🔹 Step 2: Try to get dentistId (client only)
+  if (!isServer) {
+    try {
+      dentistId = getCurrentDentistId();
+      console.log("✅ [getBillMetadata] Found client dentistId:", dentistId);
+    } catch (err) {
+      console.warn("⚠️ [getBillMetadata] No client dentistId:", err);
+    }
+  }
+
+  // 🔹 Step 3: Try specific dentist path
+  if (dentistId) {
     const ref = doc(db, "dentists", dentistId, "bills", id);
-    console.log(
-      "🔗 [getBillMetadata] Fetching doc from path: dentists/",
-      dentistId,
-      "/bills/",
-      id
-    );
     const snap = await getDoc(ref);
-
     if (snap.exists()) {
       console.log(
-        "✅ [getBillMetadata] Bill found under current dentist:",
+        "✅ [getBillMetadata] Found bill under client dentist:",
         dentistId
       );
       return { dentistId, ...snap.data() };
     } else {
       console.warn(
-        "⚠️ [getBillMetadata] Bill not found under current dentist, scanning all dentists…"
+        "⚠️ [getBillMetadata] Not found under client dentist, scanning..."
       );
     }
-  } catch (err) {
-    console.warn(
-      "⚠️ [getBillMetadata] Could not get dentistId from client:",
-      err
-    );
-    console.warn(
-      "🔁 [getBillMetadata] Falling back to direct search in all dentists"
-    );
   }
 
-  // 🚀 Try to find bill directly by scanning all dentists
+  // 🔹 Step 4: Server-safe fallback: scan all dentists
+  console.log("🔍 [getBillMetadata] Scanning all dentists for bill:", id);
   const dentistsRef = collection(db, "dentists");
   const dentistsSnap = await getDocs(dentistsRef);
   console.log(
-    `🧾 [getBillMetadata] Found ${dentistsSnap.docs.length} dentist docs to scan for bill ${id}`
+    "📚 [getBillMetadata] Dentist docs count:",
+    dentistsSnap.docs.length
   );
 
   for (const d of dentistsSnap.docs) {
     const dentistId = d.id;
-    console.log("🔍 [getBillMetadata] Checking dentist:", dentistId);
     const ref = doc(db, "dentists", dentistId, "bills", id);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      console.log(
-        `✅ [getBillMetadata] FOUND bill ${id} under dentist ${dentistId}`
-      );
+      console.log(`✅ [getBillMetadata] FOUND bill under dentist ${dentistId}`);
       const bill = snap.data() as any;
       return { dentistId, ...bill };
+    } else {
+      console.log(`🚫 [getBillMetadata] Not in dentist ${dentistId}`);
     }
   }
 
-  console.error("❌ [getBillMetadata] Bill not found anywhere for id:", id);
+  console.error("❌ [getBillMetadata] Bill not found anywhere:", id);
   throw new Error("Bill not found");
 }
 
