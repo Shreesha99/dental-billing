@@ -19,10 +19,12 @@ import {
   updateBillStatus,
 } from "../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { ExclamationTriangleFill } from "react-bootstrap-icons";
+import { FiPlusSquare } from "react-icons/fi";
 const fontUrl =
   "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansdevanagari/NotoSansDevanagari-Regular.ttf";
 
-type Patient = { id: string; name: string };
+type Patient = { id: string; name: string; phone?: string };
 type Consultation = { description: string; amount: number | null };
 
 export default function CreateBill() {
@@ -41,7 +43,7 @@ export default function CreateBill() {
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [phone, setPhone] = useState("");
-  const [patientPhone, setPatientPhone] = useState("");
+  const [patientError, setPatientError] = useState({ name: "", phone: "" });
 
   const loaderRef = useRef<SVGSVGElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -84,10 +86,39 @@ export default function CreateBill() {
     setConsultations([{ description: "", amount: null }]);
     setBillId("");
     setBillPaid(false);
+    setPhone("");
     setBillGenerated(false);
     setShowPreviousBills(false);
     setPreviousBills([]);
   };
+
+  useEffect(() => {
+    if (patientType === "new" && (patientName.trim() || phone.trim())) {
+      const sameName = patients.find(
+        (p) => p.name.trim().toLowerCase() === patientName.trim().toLowerCase()
+      );
+
+      const samePhone = patients.find(
+        (p) => p.phone && phone && p.phone.trim() === phone.trim()
+      );
+
+      let phoneError = "";
+      if (samePhone) {
+        phoneError = "Phone number already belongs to an existing patient.";
+      } else if (phone.trim() && !/^[6-9]\d{9}$/.test(phone.trim())) {
+        phoneError = "Enter a valid 10-digit Indian phone number.";
+      }
+
+      setPatientError({
+        name: sameName
+          ? "Patient already exists. Please select 'Existing'."
+          : "",
+        phone: phoneError,
+      });
+    } else {
+      setPatientError({ name: "", phone: "" });
+    }
+  }, [patientName, phone, patients, patientType]);
 
   // 🧍‍♀️ Handle patient selection
   const handlePatientSelect = async (patientId: string) => {
@@ -140,16 +171,6 @@ export default function CreateBill() {
       return toast.error("Enter patient name");
     }
 
-    if (patientType === "new") {
-      if (!/^[6-9]\d{9}$/.test(phone.trim())) {
-        console.error("❌ [generateBill] Invalid phone number:", phone);
-        toast.error(
-          "Enter a valid 10-digit phone number before generating bill"
-        );
-        return;
-      }
-    }
-
     setLoading(true);
     try {
       let patientId = selectedPatient?.id || "";
@@ -158,7 +179,7 @@ export default function CreateBill() {
       if (!dentistId) throw new Error("Dentist ID missing");
 
       if (patientType === "new") {
-        patientId = await addPatient(patientName);
+        patientId = await addPatient(patientName, phone);
         console.info(
           "✅ [generateBill] New patient created with ID:",
           patientId
@@ -185,34 +206,50 @@ export default function CreateBill() {
         consultationsCount: consultations.length,
       });
 
+      if (patientError.name) {
+        toast.error(patientError.name);
+        return;
+      }
+      if (patientError.phone) {
+        toast.error(patientError.phone);
+        return;
+      }
+
       setBillId(newBillId);
       setBillGenerated(true);
       toast.success("Bill generated successfully!");
 
-      // 📩 Send SMS
-      if (patientType === "new" && phone.trim()) {
-        try {
-          const smsBody = `Dear ${patientName}, your dental bill is ready. Download it here: ${window.location.origin}/api/get-bill-pdf?id=${newBillId}`;
-          console.info("📩 [generateBill] Preparing SMS:", smsBody);
+      try {
+        const firstTreatment =
+          consultations[0]?.description || "your treatment";
+        const treatmentText =
+          consultations.length > 1
+            ? `${firstTreatment} and ${consultations.length - 1} more`
+            : firstTreatment;
 
-          const smsRes = await fetch("/api/send-sms", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: `+91${phone.trim()}`,
-              message: smsBody,
-            }),
-          });
+        const smsBody = `Dear ${patientName}, your dental bill of ₹${totalAmount.toLocaleString(
+          "en-IN"
+        )} for ${treatmentText} is ready. Download your bill here: ${
+          window.location.origin
+        }/api/get-bill-pdf?id=${newBillId}`;
 
-          const result = await smsRes.json();
-          console.info("📩 [generateBill] SMS API Response:", result);
+        const smsRes = await fetch("/api/send-sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: `+91${phone.trim()}`,
+            message: smsBody,
+          }),
+        });
 
-          if (result.success) toast.success("SMS sent to patient!");
-          else toast.error(`⚠️ SMS failed: ${result.error || "Unknown error"}`);
-        } catch (smsErr) {
-          console.error("❌ [generateBill] Failed to send SMS:", smsErr);
-          toast.error("Bill saved but SMS not sent.");
-        }
+        const result = await smsRes.json();
+        console.info("📩 [generateBill] SMS API Response:", result);
+
+        if (result.success) toast.success("SMS sent to patient!");
+        else toast.error(`⚠️ SMS failed: ${result.error || "Unknown error"}`);
+      } catch (smsErr) {
+        console.error("❌ [generateBill] Failed to send SMS:", smsErr);
+        toast.error("Bill saved but SMS not sent.");
       }
 
       if (billRef.current) {
@@ -462,6 +499,8 @@ export default function CreateBill() {
 
   const canGenerateBill =
     consultations.some((c) => c.amount !== null && c.amount > 10) &&
+    !patientError.name &&
+    !patientError.phone &&
     !billGenerated;
   const canAddConsultation = !billGenerated;
   const totalAmount = consultations.reduce(
@@ -476,53 +515,81 @@ export default function CreateBill() {
         <h2 className="text-primary mb-3 text-center">Create New Bill</h2>
 
         {/* 🧍‍♂️ Patient Type */}
-        <div className="mb-3">
-          <label className="form-label fw-semibold">Patient Type</label>
-          <div className="d-flex gap-3">
-            <div className="form-check">
-              <input
-                type="radio"
-                className="form-check-input"
-                name="patientType"
-                value="new"
-                checked={patientType === "new"}
-                onChange={() => {
-                  setPatientType("new");
-                  resetForm();
-                }}
-              />
-              <label className="form-check-label">New Patient</label>
-            </div>
-            <div className="form-check">
-              <input
-                type="radio"
-                className="form-check-input"
-                name="patientType"
-                value="existing"
-                checked={patientType === "existing"}
-                onChange={() => {
-                  setPatientType("existing");
-                  resetForm();
-                }}
-              />
-              <label className="form-check-label">Existing Patient</label>
-            </div>
+        <div className="mb-4">
+          <label className="form-label fw-semibold d-block mb-2">
+            Patient Type
+          </label>
+          <div
+            className="btn-group w-100"
+            role="group"
+            aria-label="Patient Type"
+          >
+            <input
+              type="radio"
+              className="btn-check"
+              name="patientType"
+              id="new-patient"
+              value="new"
+              checked={patientType === "new"}
+              onChange={() => {
+                setPatientType("new");
+                resetForm();
+              }}
+            />
+            <label
+              className="btn btn-outline-primary fw-semibold d-flex align-items-center justify-content-center gap-2"
+              htmlFor="new-patient"
+            >
+              <FiPlusSquare /> New Patient
+            </label>
+
+            <input
+              type="radio"
+              className="btn-check"
+              name="patientType"
+              id="existing-patient"
+              value="existing"
+              checked={patientType === "existing"}
+              onChange={() => {
+                setPatientType("existing");
+                resetForm();
+              }}
+            />
+            <label
+              className="btn btn-outline-primary fw-semibold"
+              htmlFor="existing-patient"
+            >
+              Existing Patient
+            </label>
           </div>
         </div>
 
         {/* 🧾 Patient Selection */}
         {patientType === "existing" ? (
           <div className="mb-3">
-            <label className="form-label fw-semibold">Select Patient</label>
+            <label className="form-label fw-semibold">
+              Select Patient{" "}
+              {patients.length === 0 && (
+                <span className="text-muted small">
+                  (no patients available)
+                </span>
+              )}
+            </label>
             <select
               className="form-select"
               value={selectedPatient?.id || ""}
               onChange={(e) => handlePatientSelect(e.target.value)}
+              disabled={patients.length === 0}
             >
-              <option value="">-- Select Patient --</option>
+              <option value="" disabled>
+                {patients.length === 0
+                  ? "No patients found"
+                  : "Select an existing patient"}
+              </option>
+
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name}
+                  {p.name} {p.phone ? `(${p.phone})` : ""}
                 </option>
               ))}
             </select>
@@ -532,20 +599,42 @@ export default function CreateBill() {
             <div className="mb-3">
               <label className="form-label fw-semibold">Patient Name</label>
               <input
-                className="form-control"
+                className={`form-control ${
+                  patientError.name ? "is-invalid" : ""
+                }`}
                 placeholder="Enter patient name"
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
               />
+              {patientError.name && (
+                <div
+                  className="alert alert-danger d-flex align-items-center py-2 px-3 mt-2"
+                  style={{ borderRadius: "10px" }}
+                >
+                  <ExclamationTriangleFill className="me-2" size={16} />
+                  <div className="small">{patientError.name}</div>
+                </div>
+              )}
             </div>
             <div className="mb-3">
               <label className="form-label fw-semibold">Phone Number</label>
               <input
-                className="form-control"
+                className={`form-control ${
+                  patientError.phone ? "is-invalid" : ""
+                }`}
                 placeholder="Enter 10-digit phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
+              {patientError.phone && (
+                <div
+                  className="alert alert-danger d-flex align-items-center py-2 px-3 mt-2"
+                  style={{ borderRadius: "10px" }}
+                >
+                  <ExclamationTriangleFill className="me-2" size={16} />
+                  <div className="small">{patientError.phone}</div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -606,7 +695,7 @@ export default function CreateBill() {
         )}
 
         {/* 💬 Consultations */}
-        <h5 className="mt-3 mb-2">Consultations</h5>
+        <h5 className="mt-3 mb-2">Treatments</h5>
         {consultations.map((c, i) => (
           <div className="row mb-2 g-2 align-items-center" key={i}>
             <div className="col">

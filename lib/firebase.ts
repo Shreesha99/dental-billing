@@ -172,16 +172,32 @@ export type PatientData = {
   createdAt: Date;
 };
 
-export async function addPatient(name: string): Promise<string> {
+export async function addPatient(name: string, phone: string): Promise<string> {
   const dentistId = getCurrentDentistId();
-  const snapshot = await getDocs(dentistCol(dentistId, "patients"));
-  const existing = snapshot.docs.find((d) => (d.data() as any).name === name);
-  if (existing) return existing.id;
+  const patientsRef = dentistCol(dentistId, "patients");
 
-  const docRef = await addDoc(dentistCol(dentistId, "patients"), {
-    name,
+  // 🔍 Check duplicates by name OR phone
+  const snapshot = await getDocs(patientsRef);
+  const existing = snapshot.docs.find((d) => {
+    const data = d.data() as any;
+    return (
+      data.name.toLowerCase() === name.toLowerCase() ||
+      data.phone === phone.trim()
+    );
+  });
+
+  if (existing) {
+    console.warn("⚠️ Patient already exists:", existing.id, existing.data());
+    return existing.id; // Return existing patient ID
+  }
+
+  // ✅ Add new patient with phone
+  const docRef = await addDoc(patientsRef, {
+    name: name.trim(),
+    phone: phone.trim(),
     createdAt: new Date(),
   });
+
   return docRef.id;
 }
 
@@ -192,14 +208,18 @@ export async function getPatients(): Promise<string[]> {
 }
 
 export async function getPatientsWithId(): Promise<
-  { id: string; name: string }[]
+  { id: string; name: string; phone?: string }[]
 > {
   const dentistId = getCurrentDentistId();
   const snapshot = await getDocs(dentistCol(dentistId, "patients"));
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    name: (doc.data() as any).name,
-  }));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as any;
+    return {
+      id: doc.id,
+      name: data.name,
+      phone: data.phone || "",
+    };
+  });
 }
 
 // ------------------ 💾 BILLS BY PATIENT ------------------
