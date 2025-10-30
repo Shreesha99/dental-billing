@@ -56,7 +56,6 @@ export async function saveBillMetadata(
   consultations: any[]
 ) {
   const dentistId = getCurrentDentistId();
-  console.log("🧾 Saving bill metadata:", { dentistId, patientName });
   const billsCol = dentistCol(dentistId, "bills");
   const docRef = await addDoc(billsCol, {
     dentistId,
@@ -68,14 +67,8 @@ export async function saveBillMetadata(
 }
 
 export async function getBillMetadata(id: string): Promise<any> {
-  console.log("📥 [getBillMetadata] Called for ID:", id);
-
   // 🔹 Step 1: Detect environment
   const isServer = typeof window === "undefined";
-  console.log(
-    "🌐 [getBillMetadata] Environment:",
-    isServer ? "Server" : "Client"
-  );
 
   let dentistId: string | null = null;
 
@@ -83,7 +76,6 @@ export async function getBillMetadata(id: string): Promise<any> {
   if (!isServer) {
     try {
       dentistId = getCurrentDentistId();
-      console.log("✅ [getBillMetadata] Found client dentistId:", dentistId);
     } catch (err) {
       console.warn("⚠️ [getBillMetadata] No client dentistId:", err);
     }
@@ -94,10 +86,6 @@ export async function getBillMetadata(id: string): Promise<any> {
     const ref = doc(db, "dentists", dentistId, "bills", id);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      console.log(
-        "✅ [getBillMetadata] Found bill under client dentist:",
-        dentistId
-      );
       return { dentistId, ...snap.data() };
     } else {
       console.warn(
@@ -107,24 +95,17 @@ export async function getBillMetadata(id: string): Promise<any> {
   }
 
   // 🔹 Step 4: Server-safe fallback: scan all dentists
-  console.log("🔍 [getBillMetadata] Scanning all dentists for bill:", id);
   const dentistsRef = collection(db, "dentists");
   const dentistsSnap = await getDocs(dentistsRef);
-  console.log(
-    "📚 [getBillMetadata] Dentist docs count:",
-    dentistsSnap.docs.length
-  );
 
   for (const d of dentistsSnap.docs) {
     const dentistId = d.id;
     const ref = doc(db, "dentists", dentistId, "bills", id);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      console.log(`✅ [getBillMetadata] FOUND bill under dentist ${dentistId}`);
       const bill = snap.data() as any;
       return { dentistId, ...bill };
     } else {
-      console.log(`🚫 [getBillMetadata] Not in dentist ${dentistId}`);
     }
   }
 
@@ -261,12 +242,6 @@ export async function saveBillWithPatientId(
   };
 
   const docRef = await addDoc(dentistCol(dentistId, "bills"), billData);
-  console.log("🧾 Bill created successfully:", {
-    billId: docRef.id,
-    patientName,
-    dentistId,
-    consultationsCount: consultations.length,
-  });
   return docRef.id;
 }
 
@@ -292,13 +267,6 @@ export async function saveBillWithDentist(
 
   const billsCol = collection(db, "dentists", dentistId, "bills");
   const docRef = await addDoc(billsCol, billData);
-
-  console.log("🧾 Bill created (with explicit dentistId):", {
-    billId: docRef.id,
-    patientName,
-    dentistId,
-    consultationsCount: consultations.length,
-  });
 
   return docRef.id;
 }

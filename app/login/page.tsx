@@ -87,15 +87,12 @@ export default function LoginPage() {
       const user = result.user;
       const dentistId = user.uid;
 
-      console.log("📩 [GoogleLogin] Signed in as:", user.email, dentistId);
-
       // 🔹 Step 2: Check if dentist exists in Firestore
       const dentistRef = doc(db, "dentists", dentistId);
       const snap = await getDoc(dentistRef);
 
       if (!snap.exists()) {
         // 🆕 First time Google login — create dentist entry
-        console.log("🦷 [GoogleLogin] Dentist not found, creating new profile");
 
         await setDoc(dentistRef, {
           name: user.displayName || "New Dentist",
@@ -108,18 +105,8 @@ export default function LoginPage() {
             dentists: [],
           },
         });
-
-        console.log("✅ [GoogleLogin] Dentist profile created:", dentistId);
-      } else {
-        console.log(
-          "✅ [GoogleLogin] Dentist profile already exists:",
-          dentistId
-        );
       }
-
-      // 🔹 Step 3: Store dentist ID locally and continue
       localStorage.setItem("dentistId", dentistId);
-      console.log("💾 [GoogleLogin] Stored dentistId:", dentistId);
 
       router.push("/");
     } catch (err: any) {

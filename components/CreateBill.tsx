@@ -135,13 +135,6 @@ export default function CreateBill() {
 
   // 🧾 Generate Bill
   const generateBill = async () => {
-    console.log(
-      "🧾 [generateBill] Triggered - patientType:",
-      patientType,
-      "name:",
-      patientName
-    );
-
     if (!patientName.trim()) {
       console.error("❌ [generateBill] Missing patient name");
       return toast.error("Enter patient name");
@@ -160,18 +153,11 @@ export default function CreateBill() {
     setLoading(true);
     try {
       let patientId = selectedPatient?.id || "";
-      console.log(
-        "👤 [generateBill] Initial patientId:",
-        patientId || "(none)"
-      );
-
       const dentistId = await getDentistId();
-      console.log("🦷 [generateBill] Dentist ID resolved:", dentistId);
 
       if (!dentistId) throw new Error("Dentist ID missing");
 
       if (patientType === "new") {
-        console.log("🧍 [generateBill] Creating NEW patient:", patientName);
         patientId = await addPatient(patientName);
         console.info(
           "✅ [generateBill] New patient created with ID:",
@@ -182,25 +168,12 @@ export default function CreateBill() {
         console.info("👤 [generateBill] Existing patient selected:", patientId);
       }
 
-      console.log(
-        "💾 [generateBill] Saving bill with dentistId:",
-        dentistId,
-        "patientId:",
-        patientId
-      );
       const newBillId = await saveBillWithDentist(
         dentistId,
         patientId,
         patientName,
         consultations
       );
-
-      console.log("✅ [generateBill] Bill saved successfully:", {
-        billId: newBillId,
-        dentistId,
-        patientId,
-        consultationsCount: consultations.length,
-      });
 
       console.info("🧾 Bill created successfully:", {
         billId: newBillId,
@@ -242,7 +215,6 @@ export default function CreateBill() {
         }
       }
 
-      console.log("🧾 [generateBill] New bill ID:", newBillId);
       if (billRef.current) {
         gsap.fromTo(
           billRef.current,
@@ -255,7 +227,6 @@ export default function CreateBill() {
       toast.error("Something went wrong while generating the bill");
     } finally {
       setLoading(false);
-      console.log("🧾 [generateBill] Done (loading=false)");
     }
   };
 
