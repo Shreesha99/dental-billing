@@ -36,6 +36,8 @@ export default function CreateBill() {
   const [previousBills, setPreviousBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
 
   const loaderRef = useRef<SVGSVGElement>(null);
   const billRef = useRef<HTMLDivElement>(null);
@@ -103,8 +105,18 @@ export default function CreateBill() {
   // 🧾 Generate Bill
   const generateBill = async () => {
     if (!patientName.trim()) return toast.error("Enter patient name");
-    setLoading(true);
 
+    // 🔢 Validate phone number only for new patients
+    if (patientType === "new") {
+      if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+        toast.error(
+          "Enter a valid 10-digit phone number before generating bill"
+        );
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
       let patientId = selectedPatient?.id || "";
       if (patientType === "new") {
@@ -121,6 +133,28 @@ export default function CreateBill() {
       setBillGenerated(true);
       toast.success("Bill generated successfully!");
 
+      // 📩 Send SMS using your Twilio route (only for new patient)
+      if (patientType === "new" && phone.trim()) {
+        try {
+          const smsBody = `Dear ${patientName}, your dental bill is ready. Download it here: ${window.location.origin}/api/get-bill-pdf?id=${newBillId}`;
+          const smsRes = await fetch("/api/send-sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: `+91${phone.trim()}`,
+              message: smsBody,
+            }),
+          });
+          const result = await smsRes.json();
+
+          if (result.success) toast.success("SMS sent to patient!");
+          else toast.error(`⚠️ SMS failed: ${result.error || "Unknown error"}`);
+        } catch (smsErr) {
+          console.error("Failed to send SMS:", smsErr);
+          toast.error("Bill saved but SMS not sent.");
+        }
+      }
+
       if (billRef.current) {
         gsap.fromTo(
           billRef.current,
@@ -130,7 +164,7 @@ export default function CreateBill() {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Something went wrong");
+      toast.error("Something went wrong while generating the bill");
     } finally {
       setLoading(false);
     }
@@ -434,15 +468,26 @@ export default function CreateBill() {
             </select>
           </div>
         ) : (
-          <div className="mb-3">
-            <label className="form-label fw-semibold">Patient Name</label>
-            <input
-              className="form-control"
-              placeholder="Enter patient name"
-              value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-            />
-          </div>
+          <>
+            <div className="mb-3">
+              <label className="form-label fw-semibold">Patient Name</label>
+              <input
+                className="form-control"
+                placeholder="Enter patient name"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-semibold">Phone Number</label>
+              <input
+                className="form-control"
+                placeholder="Enter 10-digit phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+          </>
         )}
 
         {/* 📜 Previous Bills */}
