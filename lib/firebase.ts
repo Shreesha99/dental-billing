@@ -74,32 +74,32 @@ export async function saveBillMetadata(
  */
 export async function getBillMetadata(id: string): Promise<any> {
   try {
-    // 🦷 Client mode — just use the logged-in dentist
+    // Try client-side (if dentist logged in)
     const dentistId = getCurrentDentistId();
     const ref = doc(db, "dentists", dentistId, "bills", id);
     const snap = await getDoc(ref);
     if (snap.exists()) return { dentistId, ...snap.data() };
   } catch {
-    // 🖥️ Server mode (no localStorage): scan all dentists collection
-    console.log("Client dentistId unavailable, using server fallback");
-
-    const dentistsCollection = collection(db, "dentists");
-    const dentistDocs = await getDocs(dentistsCollection);
-
-    for (const dentistDoc of dentistDocs.docs) {
-      const dentistId = dentistDoc.id;
-      const billRef = doc(db, "dentists", dentistId, "bills", id);
-      const billSnap = await getDoc(billRef);
-      if (billSnap.exists()) {
-        console.log(`✅ Bill found under dentist ${dentistId}`);
-        return { dentistId, ...billSnap.data() };
-      }
-    }
-
-    console.error(`❌ Bill not found anywhere for id: ${id}`);
-    throw new Error("Bill not found");
+    console.warn("Client dentistId unavailable, using server fallback");
   }
 
+  // ✅ SERVER fallback: dynamically list all dentist docs
+  const dentistsSnap = await getDocs(collection(db, "dentists"));
+  console.log(
+    `🔍 Searching ${dentistsSnap.docs.length} dentists for bill ${id}`
+  );
+
+  for (const d of dentistsSnap.docs) {
+    const dentistId = d.id;
+    const ref = doc(db, "dentists", dentistId, "bills", id);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      console.log(`✅ Found bill under dentist ${dentistId}`);
+      return { dentistId, ...snap.data() };
+    }
+  }
+
+  console.error(`❌ Bill not found anywhere for id: ${id}`);
   throw new Error("Bill not found");
 }
 
