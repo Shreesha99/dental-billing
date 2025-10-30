@@ -602,6 +602,7 @@ export default function CreateBill() {
                 className={`form-control ${
                   patientError.name ? "is-invalid" : ""
                 }`}
+                name="patientName"
                 placeholder="Enter patient name"
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
@@ -622,6 +623,7 @@ export default function CreateBill() {
                 className={`form-control ${
                   patientError.phone ? "is-invalid" : ""
                 }`}
+                name="phoneNumber"
                 placeholder="Enter 10-digit phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -700,6 +702,7 @@ export default function CreateBill() {
           <div className="row mb-2 g-2 align-items-center" key={i}>
             <div className="col">
               <input
+                name="treatmentName"
                 className="form-control"
                 placeholder="Description"
                 value={c.description}
@@ -714,6 +717,7 @@ export default function CreateBill() {
                 <span className="input-group-text">₹</span>
                 <input
                   type="number"
+                  name="treatmentAmount"
                   className="form-control"
                   placeholder="Amount"
                   value={c.amount ?? ""}
